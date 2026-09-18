@@ -1,0 +1,54 @@
+id: UEBA-0001
+ad: Mesai dışı aktivite
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1078
+fp_riski: orta
+veri_kaynaklari:
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - saat_sapmasi_z > 3.0 or (mesai_disi_giris_sayisi >= 1 and mesai_disi_giris_poisson_p
+    < 0.01)
+siddet:
+  sinyal: saat_sapmasi_z
+  esik: 3.0
+  olcek: 1.5
+agirlik: 5
+bastirma:
+- servis_hesaplari
+- yedekleme_penceresi
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0001
+kanit:
+- logon
+- offhours
+test_senaryolari:
+- ad: gece_girisi
+  beklenen: true
+  sinyaller:
+    saat_sapmasi_z: 4.2
+    mesai_disi_giris_sayisi: 0
+    mesai_disi_giris_poisson_p: 1.0
+- ad: normal_mesai
+  beklenen: false
+  sinyaller:
+    saat_sapmasi_z: 0.4
+    mesai_disi_giris_sayisi: 0
+    mesai_disi_giris_poisson_p: 1.0
+- ad: gunduz_normal_gece_tekrar_giris
+  beklenen: true
+  sinyaller:
+    saat_sapmasi_z: 0.3
+    mesai_disi_giris_sayisi: 1
+    mesai_disi_giris_poisson_p: 0.002
+- ad: gece_calisan_kisi
+  beklenen: false
+  sinyaller:
+    saat_sapmasi_z: 0.3
+    mesai_disi_giris_sayisi: 2
+    mesai_disi_giris_poisson_p: 0.6
+notlar: ''

@@ -1,0 +1,55 @@
+# Müşteri (tenant) yapılandırması örneği — komut satırı değerleri bu dosyayı ezer.
+# Sayısal değerler KALİBRASYON BAŞLANGIÇ DEĞERLERİDİR; gölge mod ölçümleriyle doğrulanmadan taahhüde dönüşmez.
+tenant_id: musteri-A
+
+# Alarm bütçesi: günlük inceleme kuyruğu = analist kapasitesi (sabit eşik yok)
+alarm_budget_per_day: 8
+critical_percentile: 0.999
+
+# Baseline pencereleri ve zehirleme şüphesi eşiği (7g vs 90g medyan farkı, robust-z)
+short_window_days: 7
+long_window_days: 90
+poisoning_drift_z: 2.5
+
+# Akran grubu
+min_peer_group: 8
+behavioral_peer_min_days: 30
+
+# Veri kalitesi eşikleri
+dq_min_volume_ratio: 0.3
+dq_max_late_ratio: 0.2
+dq_max_unresolved_ratio: 0.2
+
+# Gölge mod yayına giriş kriteri
+shadow_min_days: 14
+shadow_min_precision: 0.25
+shadow_max_daily_alerts: 2.0
+
+# Füzyon (zamansal + yapısal)
+fusion_temporal_weight: 0.7
+fusion_structural_weight: 0.3
+
+# Raporlama: none | ollama | anthropic
+llm_backend: none
+ollama_model: gemma3:12b
+ollama_url: http://localhost:11434
+
+# Bu müşteride mevcut log kaynakları (eksik kaynağa bağlı kurallar otomatik devre dışı kalır)
+available_sources: [ad, hr, proxy, edr, vpn, file_server, dlp]
+
+# Derin graf analizinin hedef aldığı kritik varlıklar
+critical_assets:
+  - '\\FIN-SRV-01\butce'
+  - '\\HR-SRV-01\bordro'
+
+# Bastırma kuralları: en dar kapsam, son kullanma tarihi, yazılı gerekçe ve sahip zorunlu
+suppressions:
+  - rule_id: UEBA-0003
+    sid: U-1028
+    start: "2026-09-01"
+    end: "2026-11-30"
+    reason: "aylık kapanış toplu raporlama"
+    owner: "finans-it"
+
+# Üretimde KMS/vault'tan gelir
+pseudonym_secret: degistir-bu-anahtari

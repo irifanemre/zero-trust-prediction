@@ -1,0 +1,58 @@
+id: UEBA-0017
+ad: Taşınabilir medya anomalisi (ilk kez / yığın)
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1052
+fp_riski: orta
+veri_kaynaklari:
+- dlp
+mantik:
+  pencere: 1d
+  kosullar:
+  - usb_sayisi >= 1
+  - usb_ilk_kez == 1 or usb_poisson_p < 0.001 or usb_7g_poisson_p < 0.001
+siddet:
+  sinyal: usb_anomali_p
+  esik: 0.05
+  olcek: 2.0
+  donusum: log10
+agirlik: 6
+bastirma:
+- servis_hesaplari
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0017
+kanit:
+- usb
+test_senaryolari:
+- ad: ilk_kez_usb
+  beklenen: true
+  sinyaller:
+    usb_sayisi: 1
+    usb_ilk_kez: 1
+    usb_poisson_p: 0.05
+    usb_7g_poisson_p: 0.3
+- ad: usb_yigini
+  beklenen: true
+  sinyaller:
+    usb_sayisi: 9
+    usb_ilk_kez: 0
+    usb_poisson_p: 1.0e-07
+    usb_7g_poisson_p: 0.001
+- ad: esik_alti_ama_haftalik_belirgin
+  beklenen: true
+  sinyaller:
+    usb_sayisi: 5
+    usb_ilk_kez: 0
+    usb_poisson_p: 0.05
+    usb_7g_poisson_p: 1.0e-05
+- ad: alisik_kullanici
+  beklenen: false
+  sinyaller:
+    usb_sayisi: 1
+    usb_ilk_kez: 0
+    usb_poisson_p: 0.4
+    usb_7g_poisson_p: 0.5
+notlar: Kataloğa CERT senaryo 1/2 (T1052) için eklendi; üretimde 13.6 gölge mod protokolünden
+  geçer.

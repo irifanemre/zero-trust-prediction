@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Çalışma çıktıları (vaka raporları, kimlik kasası, etiketler — kişisel veri içerebilir)
+ztp_out*/
+*.log
+
+# CERT veri seti (20 GB; scripts/download_cert.py ile indirilir)
+cert_data/
+*.tar.bz2
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

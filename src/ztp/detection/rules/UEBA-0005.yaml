@@ -1,0 +1,57 @@
+id: UEBA-0005
+ad: Yeni cihaz veya konum
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1078
+fp_riski: orta
+veri_kaynaklari:
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - yeni_cihaz_sayisi + yeni_ulke_sayisi >= 1 or baskasinin_cihazi_sayisi >= 1
+  - profil_gun >= 14
+siddet:
+  sinyal: cihaz_yenilik_akran_nadirlik
+  esik: 2.0
+  olcek: 0.7
+agirlik: 4
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0005
+kanit:
+- new_device
+- new_country
+test_senaryolari:
+- ad: yeni_cihaz
+  beklenen: true
+  sinyaller:
+    yeni_cihaz_sayisi: 1
+    yeni_ulke_sayisi: 0
+    baskasinin_cihazi_sayisi: 0
+    profil_gun: 40
+- ad: baskasinin_atanmis_cihazi
+  beklenen: true
+  sinyaller:
+    yeni_cihaz_sayisi: 0
+    yeni_ulke_sayisi: 0
+    baskasinin_cihazi_sayisi: 1
+    profil_gun: 40
+- ad: bilinen_cihaz
+  beklenen: false
+  sinyaller:
+    yeni_cihaz_sayisi: 0
+    yeni_ulke_sayisi: 0
+    baskasinin_cihazi_sayisi: 0
+    profil_gun: 40
+- ad: akranin_kullandigi_lab_makinesi
+  beklenen: false
+  sinyaller:
+    yeni_cihaz_sayisi: 0
+    yeni_ulke_sayisi: 0
+    baskasinin_cihazi_sayisi: 0
+    profil_gun: 40
+notlar: Yeni cihaz = kişisel VE akran kümesinde yok (paylaşımlı lab makineleri elenir);
+  başkasına atanmış cihaz ayrı sinyal.

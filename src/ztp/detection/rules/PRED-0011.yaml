@@ -1,0 +1,40 @@
+id: PRED-0011
+ad: Yetki artışı sonrası davranış kayması
+surum: '1.0'
+durum: yayinda
+katman: Prediction
+attack:
+- T1078.003
+fp_riski: dusuk
+veri_kaynaklari:
+- ik
+- ad_oturum
+- dosya_sunucu
+mantik:
+  pencere: 1d
+  kosullar:
+  - yetki_degisim_gun >= 0
+  - yetki_sonrasi_kaynak_z > 3.0
+siddet:
+  sinyal: yetki_sonrasi_kaynak_z
+  esik: 3.0
+  olcek: 2.0
+agirlik: 7
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-PRED-0011
+kanit:
+- yetki
+- file
+test_senaryolari:
+- ad: yetki_sonrasi_ilgisiz_alan
+  beklenen: true
+  sinyaller:
+    yetki_degisim_gun: 5
+    yetki_sonrasi_kaynak_z: 6.0
+- ad: yetki_yok
+  beklenen: false
+  sinyaller:
+    yetki_degisim_gun: -1
+    yetki_sonrasi_kaynak_z: 6.0
+notlar: ''

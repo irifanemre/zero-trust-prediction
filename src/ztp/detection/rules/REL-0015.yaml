@@ -1,0 +1,39 @@
+id: REL-0015
+ad: Paylaşılan cihaz üzerinden yayılma
+surum: '1.0'
+durum: yayinda
+katman: iliskisel
+attack:
+- T1021
+fp_riski: orta
+veri_kaynaklari:
+- graf
+- ad_oturum
+- dosya_sunucu
+mantik:
+  pencere: 1d
+  kosullar:
+  - paylasilan_cihaz_sayisi >= 1
+  - kritik_varliga_yol_sayisi >= 1
+siddet:
+  sinyal: kritik_varliga_yol_sayisi
+  esik: 0.5
+  olcek: 1.0
+agirlik: 7
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-REL-0015
+kanit:
+- graf
+test_senaryolari:
+- ad: paylasilan_cihaz_kritik_yol
+  beklenen: true
+  sinyaller:
+    paylasilan_cihaz_sayisi: 1
+    kritik_varliga_yol_sayisi: 2
+- ad: kendi_cihazi
+  beklenen: false
+  sinyaller:
+    paylasilan_cihaz_sayisi: 0
+    kritik_varliga_yol_sayisi: 2
+notlar: ''

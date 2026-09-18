@@ -1,0 +1,50 @@
+id: UEBA-0008
+ad: Hesap yaşı × keşif yoğunluğu
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1087
+- T1018
+fp_riski: dusuk
+veri_kaynaklari:
+- ad_oturum
+- ik
+- dosya_sunucu
+mantik:
+  pencere: 1d
+  kosullar:
+  - hesap_yasi_gun < 30
+  - kesif_genisligi_akran_kati > 3.0 or kesif_sureci_sayisi >= 3
+siddet:
+  sinyal: kesif_genisligi_akran_kati
+  esik: 3.0
+  olcek: 2.0
+agirlik: 6
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0008
+kanit:
+- file
+- recon
+test_senaryolari:
+- ad: yeni_calisan_genis_kesif
+  beklenen: true
+  sinyaller:
+    hesap_yasi_gun: 12
+    kesif_genisligi_akran_kati: 6.0
+    kesif_sureci_sayisi: 2
+- ad: yeni_calisan_normal
+  beklenen: false
+  sinyaller:
+    hesap_yasi_gun: 12
+    kesif_genisligi_akran_kati: 1.2
+    kesif_sureci_sayisi: 0
+- ad: eski_calisan
+  beklenen: false
+  sinyaller:
+    hesap_yasi_gun: 400
+    kesif_genisligi_akran_kati: 6.0
+    kesif_sureci_sayisi: 2
+notlar: Yeni çalışanın keşfi normaldir; sinyal keşfin yoğunluğunun ve genişliğinin
+  akrandan sapmasıdır (12.3).

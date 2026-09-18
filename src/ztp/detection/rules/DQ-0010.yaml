@@ -1,0 +1,36 @@
+id: DQ-0010
+ad: Log kesintisi / ajan sessizliği
+surum: '1.0'
+durum: yayinda
+katman: veri-kalitesi
+attack:
+- T1562
+fp_riski: dusuk
+veri_kaynaklari:
+- edr
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - log_sessizligi == 1
+siddet:
+  sinyal: log_sessizligi
+  esik: 0.5
+  olcek: 0.25
+agirlik: 5
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-DQ-0010
+kanit:
+- silence
+- logon
+test_senaryolari:
+- ad: edr_sustu_kullanici_aktif
+  beklenen: true
+  sinyaller:
+    log_sessizligi: 1
+- ad: akiyor
+  beklenen: false
+  sinyaller:
+    log_sessizligi: 0
+notlar: 'Veri yokluğu da sinyaldir (2.3): görünürlük yok ≠ olay yok.'

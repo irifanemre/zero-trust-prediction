@@ -1,0 +1,53 @@
+id: UEBA-0002
+ad: İlk kez görülen uygulama
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1204
+fp_riski: yuksek
+veri_kaynaklari:
+- proxy
+mantik:
+  pencere: 1d
+  kosullar:
+  - yeni_uygulama_sayisi >= 1 or yeni_hassas_uygulama >= 1
+  - profil_gun >= 30
+siddet:
+  sinyal: yeni_hassas_uygulama
+  esik: 0.5
+  olcek: 0.5
+agirlik: 4
+bastirma:
+- servis_hesaplari
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0002
+kanit:
+- new_app
+test_senaryolari:
+- ad: kisi_ve_akran_icin_yeni
+  beklenen: true
+  sinyaller:
+    yeni_uygulama_sayisi: 1
+    yeni_hassas_uygulama: 0
+    profil_gun: 60
+- ad: akranda_var_hassas_degil
+  beklenen: false
+  sinyaller:
+    yeni_uygulama_sayisi: 0
+    yeni_hassas_uygulama: 0
+    profil_gun: 60
+- ad: kisisel_ilk_kez_is_arama
+  beklenen: true
+  sinyaller:
+    yeni_uygulama_sayisi: 0
+    yeni_hassas_uygulama: 1
+    profil_gun: 60
+- ad: yeni_hesap_gurultu
+  beklenen: false
+  sinyaller:
+    yeni_uygulama_sayisi: 2
+    yeni_hassas_uygulama: 1
+    profil_gun: 5
+notlar: 'Genel uygulama: kişi VE akran için yeni olmalı (FP yüksek). Hassas kategori
+  (bulut depolama, iş arama, saldırı aracı): kişisel ilk kez yeterli.'

@@ -1,0 +1,38 @@
+id: UEBA-0003
+ad: Anormal veri çıkış hacmi
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1567
+fp_riski: orta
+veri_kaynaklari:
+- proxy
+mantik:
+  pencere: 1d
+  kosullar:
+  - veri_hacmi_z > 3.5
+  - veri_hacmi_akran_kati > 5.0
+siddet:
+  sinyal: veri_hacmi_z
+  esik: 3.5
+  olcek: 2.0
+agirlik: 8
+bastirma:
+- servis_hesaplari
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0003
+kanit:
+- bytes
+test_senaryolari:
+- ad: 14GB_indirme
+  beklenen: true
+  sinyaller:
+    veri_hacmi_z: 9.0
+    veri_hacmi_akran_kati: 40
+- ad: ay_sonu_ekiple_birlikte
+  beklenen: false
+  sinyaller:
+    veri_hacmi_z: 4.0
+    veri_hacmi_akran_kati: 1.3
+notlar: ''

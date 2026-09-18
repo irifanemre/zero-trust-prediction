@@ -1,0 +1,165 @@
+"""Varlık-gün özellik çıkarımı — 13.1: tespitler varlık-gün bağlamında toplanır."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import Sequence
+
+import numpy as np
+import pandas as pd
+
+from ztp.schema import OCSF_AUTH, OCSF_NETWORK, RECON_CMD_HINTS, RECON_PROCESSES, haversine_km
+
+NUM_FEATURES = [
+    "event_count",
+    "logon_count",
+    "failed_logon_count",
+    "bytes_out",
+    "files_accessed",
+    "distinct_resources",
+    "sensitive_access_count",
+    "recon_process_count",
+    "proc_count",
+    "usb_count",
+    "offhours_ratio",
+    "distinct_apps_n",
+    "offhours_logon_count",
+]
+SEASONAL_FEATURES = {"logon_count", "files_accessed", "bytes_out", "event_count", "distinct_resources"}
+FEATURE_FLOOR = {
+    "bytes_out": 5e6,
+    "files_accessed": 1.0,
+    "failed_logon_count": 0.5,
+    "logon_count": 0.5,
+    "distinct_resources": 0.5,
+    "event_count": 2.0,
+    "sensitive_access_count": 0.5,
+    "recon_process_count": 0.5,
+    "proc_count": 1.0,
+    "usb_count": 0.5,
+    "offhours_ratio": 0.05,
+    "distinct_apps_n": 0.5,
+    "offhours_logon_count": 0.3,
+}
+
+
+def extract_features(ev_all: pd.DataFrame, critical_assets: Sequence[str]) -> pd.DataFrame:
+    ev = ev_all[ev_all["canonical"].notna() & ~ev_all["is_service"]].copy()
+    ev["day"] = ev["time"].dt.normalize()
+    hour = ev["time"].dt.hour + ev["time"].dt.minute / 60.0
+    ev["hour"] = hour
+    ev["offhours"] = (hour < 7) | (hour >= 20) | (ev["day"].dt.dayofweek >= 5)
+    ev["is_recon"] = ev["source"].eq("edr") & (
+        ev["process"].isin(RECON_PROCESSES)
+        | ev["cmdline"].fillna("").str.contains("|".join(map(lambda s: s.replace("/", r"\/"), RECON_CMD_HINTS)), regex=True)
+    )
+    keys = ["canonical", "day"]
+    g = ev.groupby(keys, sort=True)
+    f = pd.DataFrame({"event_count": g.size()})
+    f["offhours_ratio"] = g["offhours"].mean()
+    f["bytes_out"] = g["bytes_out"].sum()
+    auth = ev[(ev["class_uid"] == OCSF_AUTH) & (ev["action"] == "logon")]
+    ok = auth[auth["outcome"] == "success"]
+    f["logon_count"] = ok.groupby(keys).size()
+    f["first_logon_hour"] = ok.groupby(keys)["hour"].min()
+    f["offhours_logon_count"] = ok[ok["offhours"]].groupby(keys).size()  # ilk giriş saati normal olsa da gece tekrar giriş
+    f["failed_logon_count"] = auth[auth["outcome"] == "failure"].groupby(keys).size()
+    files = ev[ev["source"] == "file_server"]
+    f["files_accessed"] = files.groupby(keys).size()
+    f["distinct_resources"] = files.groupby(keys)["resource"].nunique()
+    f["sensitive_access_count"] = files[files["resource"].isin(set(critical_assets))].groupby(keys).size()
+    f["file_offhours_ratio"] = files.groupby(keys)["offhours"].mean()
+    f["proc_count"] = ev[ev["source"] == "edr"].groupby(keys).size()
+    f["recon_process_count"] = ev[ev["is_recon"]].groupby(keys).size()
+    f["usb_count"] = ev[(ev["source"] == "dlp") & (ev["action"] == "usb_copy")].groupby(keys).size()
+    f["distinct_apps_n"] = ev[ev["app"].notna()].groupby(keys)["app"].nunique()
+    count_cols = [c for c in NUM_FEATURES if c in f.columns] + ["file_offhours_ratio"]
+    f[count_cols] = f[count_cols].fillna(0)
+    # kümeler + kanıt (olay kimlikleri) + imkânsız seyahat: numpy döngüsü (varlık-gün başına ~15 olay)
+    idx = g.indices
+    A = {
+        c: ev[c].values
+        for c in [
+            "event_id",
+            "app",
+            "device",
+            "country",
+            "resource",
+            "offhours",
+            "hour",
+            "source",
+            "outcome",
+            "bytes_out",
+            "is_recon",
+            "action",
+            "class_uid",
+        ]
+    }
+    T = ev["time"].values.astype("datetime64[m]").astype(np.int64)
+    recs = {}
+    for key, pos in idx.items():
+        apps, devs, ctry, ress = {}, {}, {}, {}
+        evid = defaultdict(list)
+        travel = []
+        off_hours = []
+        top_bytes = []
+        for p in pos:
+            eid = A["event_id"][p]
+            src = A["source"][p]
+            if A["app"][p] is not None and isinstance(A["app"][p], str):
+                apps.setdefault(A["app"][p], eid)
+            if isinstance(A["device"][p], str):
+                devs.setdefault(A["device"][p], eid)
+            if isinstance(A["country"][p], str):
+                ctry.setdefault(A["country"][p], eid)
+                if A["class_uid"][p] in (OCSF_AUTH, OCSF_NETWORK) and A["outcome"][p] == "success":
+                    travel.append((T[p], A["country"][p], eid))
+            if isinstance(A["resource"][p], str):
+                ress.setdefault(A["resource"][p], eid)
+                if len(evid["file"]) < 6:
+                    evid["file"].append(eid)
+            if A["offhours"][p]:
+                off_hours.append(float(A["hour"][p]))
+                if len(evid["offhours"]) < 6:
+                    evid["offhours"].append(eid)
+            if src == "ad" and A["outcome"][p] == "failure" and len(evid["failed_logon"]) < 6:
+                evid["failed_logon"].append(eid)
+            if src == "ad" and A["outcome"][p] == "success" and len(evid["logon"]) < 4:
+                evid["logon"].append(eid)
+            if A["is_recon"][p] and len(evid["recon"]) < 6:
+                evid["recon"].append(eid)
+            if src == "dlp" and len(evid["usb"]) < 4:
+                evid["usb"].append(eid)
+            if A["bytes_out"][p] > 0:
+                top_bytes.append((int(A["bytes_out"][p]), eid))
+        top_bytes.sort(reverse=True)
+        evid["bytes"] = [e for _, e in top_bytes[:5]]
+        max_speed, travel_ev = 0.0, []
+        if len(travel) > 1:
+            travel.sort()
+            for (t1, c1, e1), (t2, c2, e2) in zip(travel, travel[1:]):
+                if c1 != c2:
+                    hours = max((t2 - t1) / 60.0, 1 / 60.0)
+                    speed = haversine_km(c1, c2) / hours
+                    if speed > max_speed:
+                        max_speed, travel_ev = speed, [e1, e2]
+        evid["travel"] = travel_ev
+        recs[key] = dict(
+            apps=frozenset(apps),
+            devices=frozenset(devs),
+            countries=frozenset(ctry),
+            resources=frozenset(ress),
+            app_events=apps,
+            device_events=devs,
+            country_events=ctry,
+            resource_events=ress,
+            evidence=dict(evid),
+            offhours_hours=off_hours,
+            max_travel_speed=max_speed,
+        )
+    extra = pd.DataFrame.from_dict(recs, orient="index")
+    extra.index = pd.MultiIndex.from_tuples(extra.index, names=keys)
+    f = f.join(extra, how="left")
+    f = f.reset_index().rename(columns={"canonical": "sid"})
+    f["dow"] = f["day"].dt.dayofweek
+    return f

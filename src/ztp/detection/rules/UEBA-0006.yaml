@@ -1,0 +1,38 @@
+id: UEBA-0006
+ad: Başarısız giriş yığını
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1110
+fp_riski: dusuk
+veri_kaynaklari:
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - basarisiz_giris_poisson_p < 0.001
+  - basarisiz_giris_sayisi >= 5
+siddet:
+  sinyal: basarisiz_giris_poisson_p
+  esik: 0.001
+  olcek: 2.0
+  donusum: log10
+agirlik: 5
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0006
+kanit:
+- failed_logon
+test_senaryolari:
+- ad: 22_basarisiz
+  beklenen: true
+  sinyaller:
+    basarisiz_giris_poisson_p: 1.0e-12
+    basarisiz_giris_sayisi: 22
+- ad: iki_yanlis_sifre
+  beklenen: false
+  sinyaller:
+    basarisiz_giris_poisson_p: 0.2
+    basarisiz_giris_sayisi: 2
+notlar: ''

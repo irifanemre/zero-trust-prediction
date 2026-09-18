@@ -1,0 +1,48 @@
+id: UEBA-0007
+ad: Mesai dışı toplu dosya erişimi
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1039
+- T1530
+fp_riski: orta
+veri_kaynaklari:
+- dosya_sunucu
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - saat_sapmasi_z > 3.0 or mesai_disi_dosya_orani > 0.5
+  - dosya_sayisi_poisson_p < 0.001
+  - dosya_sayisi_akran_kati > 5.0
+siddet:
+  sinyal: dosya_sayisi_poisson_p
+  esik: 0.001
+  olcek: 3.0
+  donusum: log10
+agirlik: 8
+bastirma:
+- servis_hesaplari
+- yedekleme_penceresi
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0007
+kanit:
+- file
+- offhours
+test_senaryolari:
+- ad: toplu_indirme_gece
+  beklenen: true
+  sinyaller:
+    saat_sapmasi_z: 1.0
+    mesai_disi_dosya_orani: 0.9
+    dosya_sayisi_poisson_p: 1.0e-09
+    dosya_sayisi_akran_kati: 12
+- ad: toplu_indirme_mesai_ici
+  beklenen: false
+  sinyaller:
+    saat_sapmasi_z: 0.5
+    mesai_disi_dosya_orani: 0.0
+    dosya_sayisi_poisson_p: 1.0e-09
+    dosya_sayisi_akran_kati: 12
+notlar: ''

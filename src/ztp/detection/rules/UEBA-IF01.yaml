@@ -1,0 +1,38 @@
+id: UEBA-IF01
+ad: 'Isolation Forest destek: çok değişkenli sapma'
+surum: '1.0'
+durum: golge-modda
+katman: UEBA
+attack: []
+fp_riski: yuksek
+veri_kaynaklari:
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - if_anomali_pct > 0.995
+siddet:
+  sinyal: if_anomali_pct
+  esik: 0.995
+  olcek: 0.003
+agirlik: 3
+bastirma:
+- servis_hesaplari
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-IF01
+kanit:
+- bytes
+- file
+- recon
+test_senaryolari:
+- ad: uc_yuzdelik
+  beklenen: true
+  sinyaller:
+    if_anomali_pct: 0.999
+- ad: normal
+  beklenen: false
+  sinyaller:
+    if_anomali_pct: 0.6
+notlar: 'Destek dedektör (ADR-001). Kural skorunu ezmez, eklenir (14.6); katkı açıklaması
+  zorunlu. Gölge modda başlar: ana robust baseline''a ek değer ürettiği ölçülmeden
+  (19.5 ablasyon) skora dahil edilmez.'

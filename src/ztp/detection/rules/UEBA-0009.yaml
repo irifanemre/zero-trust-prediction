@@ -1,0 +1,40 @@
+id: UEBA-0009
+ad: Akran grubundan yapısal sapma
+surum: '1.0'
+durum: golge-modda
+katman: UEBA
+attack: []
+fp_riski: orta
+veri_kaynaklari:
+- ad_oturum
+- proxy
+- dosya_sunucu
+mantik:
+  pencere: 1d
+  kosullar:
+  - akran_yapisal_mesafe > 3.0
+  - profil_gun >= 7
+siddet:
+  sinyal: akran_yapisal_mesafe
+  esik: 3.0
+  olcek: 1.5
+agirlik: 4
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0009
+kanit:
+- bytes
+- file
+test_senaryolari:
+- ad: uzak
+  beklenen: true
+  sinyaller:
+    akran_yapisal_mesafe: 4.5
+    profil_gun: 30
+- ad: yakin
+  beklenen: false
+  sinyaller:
+    akran_yapisal_mesafe: 1.0
+    profil_gun: 30
+notlar: 'ATT&CK eşleşmesi yok, FP riski orta: gölge modda precision ölçülmeden yayına
+  alınmaz (13.6).'

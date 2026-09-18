@@ -1,0 +1,47 @@
+id: PRED-0014
+ad: Ayrılık öncesi davranış deseni
+surum: '1.0'
+durum: yayinda
+katman: Prediction
+attack:
+- T1052
+- T1567
+fp_riski: orta
+veri_kaynaklari:
+- ik
+- proxy
+- dlp
+mantik:
+  pencere: 1d
+  kosullar:
+  - ayrilik_bildirimi == 1
+  - hacim_trend_14g > 1.0 or bulut_yeni_uygulama == 1 or veri_hacmi_z > 3.0 or usb_sayisi
+    >= 1
+siddet:
+  sinyal: veri_hacmi_z
+  esik: 1.0
+  olcek: 2.0
+agirlik: 8
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-PRED-0014
+kanit:
+- bytes
+- new_app
+- usb
+test_senaryolari:
+- ad: ayrilik_ve_bulut
+  beklenen: true
+  sinyaller:
+    ayrilik_bildirimi: 1
+    hacim_trend_14g: 0.2
+    bulut_yeni_uygulama: 1
+    veri_hacmi_z: 1.0
+- ad: ayrilik_ama_normal
+  beklenen: false
+  sinyaller:
+    ayrilik_bildirimi: 1
+    hacim_trend_14g: 0.0
+    bulut_yeni_uygulama: 0
+    veri_hacmi_z: 0.5
+notlar: ''

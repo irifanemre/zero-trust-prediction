@@ -1,0 +1,51 @@
+id: PRED-0012
+ad: Risk yörüngesinde sürekli artış
+surum: '1.0'
+durum: yayinda
+katman: Prediction
+attack: []
+fp_riski: orta
+veri_kaynaklari:
+- risk_serisi
+mantik:
+  pencere: 1d
+  kosullar:
+  - risk_egim_7g > 0.5
+  - risk_ewma_kisa > 3.0
+  - risk_ewma_kisa > 1.5 * risk_ewma_uzun
+  - risk_pozitif_gun_7g >= 3
+siddet:
+  sinyal: risk_egim_7g
+  esik: 0.5
+  olcek: 0.5
+agirlik: 6
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-PRED-0012
+kanit:
+- risk_serisi
+test_senaryolari:
+- ad: yukselen
+  beklenen: true
+  sinyaller:
+    risk_egim_7g: 1.2
+    risk_ewma_kisa: 9.0
+    risk_ewma_uzun: 2.0
+    risk_pozitif_gun_7g: 5
+- ad: tek_sicrama
+  beklenen: false
+  sinyaller:
+    risk_egim_7g: 1.2
+    risk_ewma_kisa: 9.0
+    risk_ewma_uzun: 2.0
+    risk_pozitif_gun_7g: 1
+- ad: yuksek_ama_duz
+  beklenen: false
+  sinyaller:
+    risk_egim_7g: 0.1
+    risk_ewma_kisa: 9.0
+    risk_ewma_uzun: 8.0
+    risk_pozitif_gun_7g: 7
+notlar: 'Prediction katmanının ana çıktısı: tek olay değil, risk seviyesinin zaman
+  içindeki seyri (12.3). Seri UEBA skorlarından oluşur (prediction tespitleri seriye
+  geri yazılmaz — kendi kendini besleme yok).'

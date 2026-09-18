@@ -1,0 +1,36 @@
+id: UEBA-0004
+ad: İmkânsız seyahat
+surum: '1.0'
+durum: yayinda
+katman: UEBA
+attack:
+- T1078
+fp_riski: dusuk
+veri_kaynaklari:
+- ad_oturum
+mantik:
+  pencere: 1d
+  kosullar:
+  - imkansiz_seyahat == 1
+siddet:
+  sinyal: seyahat_hizi_kmh
+  esik: 900.0
+  olcek: 600.0
+agirlik: 7
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-UEBA-0004
+kanit:
+- travel
+test_senaryolari:
+- ad: moskova_istanbul_1saat
+  beklenen: true
+  sinyaller:
+    imkansiz_seyahat: 1
+    seyahat_hizi_kmh: 1800
+- ad: ayni_ulke
+  beklenen: false
+  sinyaller:
+    imkansiz_seyahat: 0
+    seyahat_hizi_kmh: 0
+notlar: ''

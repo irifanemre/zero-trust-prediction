@@ -1,0 +1,42 @@
+id: PRED-0013
+ad: Uzun sessizlik sonrası yoğun aktivite
+surum: '1.0'
+durum: yayinda
+katman: Prediction
+attack:
+- T1078
+fp_riski: orta
+veri_kaynaklari:
+- ad_oturum
+- ik
+mantik:
+  pencere: 1d
+  kosullar:
+  - sessizlik_gun >= 14
+  - izin_kayitli == 0
+  - donus_aktivite_z > 3.0
+siddet:
+  sinyal: donus_aktivite_z
+  esik: 3.0
+  olcek: 2.0
+agirlik: 5
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-PRED-0013
+kanit:
+- logon
+- bytes
+test_senaryolari:
+- ad: izinsiz_bosluk_sonrasi_patlama
+  beklenen: true
+  sinyaller:
+    sessizlik_gun: 20
+    izin_kayitli: 0
+    donus_aktivite_z: 5.0
+- ad: kayitli_izin_donusu
+  beklenen: false
+  sinyaller:
+    sessizlik_gun: 20
+    izin_kayitli: 1
+    donus_aktivite_z: 5.0
+notlar: ''

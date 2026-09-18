@@ -1,0 +1,33 @@
+id: REL-0016
+ad: Ortak kaynak erişen riskli kullanıcı kümesi
+surum: '1.0'
+durum: yayinda
+katman: iliskisel
+attack: []
+fp_riski: dusuk
+veri_kaynaklari:
+- graf
+mantik:
+  pencere: 1d
+  kosullar:
+  - ortak_kaynak_riskli_kume >= 1
+siddet:
+  sinyal: ortak_kaynak_riskli_kume
+  esik: 0.5
+  olcek: 1.0
+agirlik: 4
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-REL-0016
+kanit:
+- graf
+test_senaryolari:
+- ad: ortak_nokta
+  beklenen: true
+  sinyaller:
+    ortak_kaynak_riskli_kume: 2
+- ad: yok
+  beklenen: false
+  sinyaller:
+    ortak_kaynak_riskli_kume: 0
+notlar: ''
