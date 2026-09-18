@@ -49,6 +49,9 @@ class TenantConfig:
     ollama_model: str = "llama3.1"
     ollama_url: str = "http://localhost:11434"
     anthropic_model: str = "claude-opus-5"
+    rag_enabled: bool = True  # ATT&CK bilgi tabanı bağlamı (ADR-009: yalnızca açıklama, skorlamada değil)
+    llm_on_injection: str = "template"  # kanıtta talimat benzeri içerik varsa: template (LLM çağrılmaz) | sanitized (redakte edilmiş veriyle çağrılır)
+    llm_max_field_len: int = 200  # LLM'e giden her metin alanının üst sınırı
     # 20.1 takma adlaştırma anahtarı (üretimde KMS/vault'tan gelir)
     pseudonym_secret: str = "degistir-bu-anahtari"
     # 11.1 kademeli işlevsellik: bu müşteride mevcut log kaynakları
@@ -69,6 +72,8 @@ class TenantConfig:
             raise ValueError("füzyon ağırlıkları toplamı 1 olmalı")
         if self.llm_backend not in ("none", "ollama", "anthropic"):
             raise ValueError("llm_backend: none | ollama | anthropic")
+        if self.llm_on_injection not in ("template", "sanitized"):
+            raise ValueError("llm_on_injection: template | sanitized")
         self.available_sources = tuple(self.available_sources)
         self.critical_assets = tuple(self.critical_assets)
 

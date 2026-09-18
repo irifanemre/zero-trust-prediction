@@ -48,6 +48,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "ztp.detection" = ["rules/*.yaml"]
+"ztp.reporting" = ["knowledge/*.yaml", "knowledge/MANIFEST.sha256"]
 
 [tool.ruff]
 line-length = 130

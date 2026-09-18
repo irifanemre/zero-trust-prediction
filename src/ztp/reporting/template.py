@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List
 
 from ztp.detection.engine import Hit
+from ztp.reporting.sanitize import strip_unsafe
 
 
 class TemplateReporter:
@@ -82,11 +83,24 @@ class TemplateReporter:
         L.append("│ ZAMAN ÇİZELGESİ".ljust(w + 1) + "│")
         for t in case["zaman_cizelgesi"]:
             L.append(f"│  {t}".ljust(w + 1) + "│")
+        if case.get("attack_baglami"):
+            L.append("├" + "─" * w + "┤")
+            L.append("│ ATT&CK BAĞLAMI (bilgi tabanı; skorlamaya girmez)".ljust(w + 1) + "│")
+            for p in case["attack_baglami"][:4]:
+                L.append(f"│  {p['teknik']} {p['ad']} — {p['ozet']} Önlem: {p['onlem']}".ljust(w + 1) + "│")
         L.append("├" + "─" * w + "┤")
         L.append("│ OTOMATİK ÖZET (her ifade olay kimliğine bağlı)".ljust(w + 1) + "│")
         for line in _wrap(case["ozet"], w - 3):
             L.append(f"│  {line}".ljust(w + 1) + "│")
         L.append(f"│  [özet kaynağı: {case['ozet_kaynagi']}]".ljust(w + 1) + "│")
+        sec = case.get("guvenlik") or {}
+        if sec.get("injection_suphesi"):
+            L.append(
+                f"│  ⚠ GÜVENLİK: kanıt metinlerinde talimat benzeri içerik {sec.get('bayraklar')} — redakte edildi, LLM'e verilmedi".ljust(
+                    w + 1
+                )
+                + "│"
+            )
         L.append("├" + "─" * w + "┤")
         r = case["mudahale"]
         L.append(
@@ -109,6 +123,7 @@ class TemplateReporter:
         # kutu satırları: uzun satırlar kesilmez, sarılır (analist bilgi kaybetmesin)
         out = []
         for line in raw:
+            line = strip_unsafe(line)  # log kaynaklı adlardaki ANSI/kontrol karakterleri raporu/terminali manipüle edemez
             if line.startswith(("┌", "├", "└")):
                 out.append(line)
                 continue

@@ -33,6 +33,9 @@ fusion_structural_weight: 0.3
 llm_backend: none
 ollama_model: gemma3:12b
 ollama_url: http://localhost:11434
+rag_enabled: true               # ATT&CK bilgi tabanı bağlamı (bütünlük doğrulamalı)
+llm_on_injection: template      # kanıt metninde talimat benzeri içerik → LLM çağrılmaz, şablon + güvenlik bayrağı
+llm_max_field_len: 200
 
 # Bu müşteride mevcut log kaynakları (eksik kaynağa bağlı kurallar otomatik devre dışı kalır)
 available_sources: [ad, hr, proxy, edr, vpn, file_server, dlp]

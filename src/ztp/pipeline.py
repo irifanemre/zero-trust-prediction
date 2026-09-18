@@ -290,7 +290,13 @@ class ZeroTrustPredictionPipeline:
             kanit_serileri={k: v for k, v in evid.items() if k in ("risk_serisi", "rejim", "yetki", "silence")},
             mudahale=tiered_response(combined, r.critical),
         )
-        case["ozet"], case["ozet_kaynagi"] = self.llm.summarize(case)
+        if self.llm.kb:
+            case["attack_baglami"] = [
+                dict(teknik=p.technique, ad=p.name, taktik=p.tactic, ozet=p.summary, onlem=p.mitigations, kaynak=p.source)
+                for p in self.llm.kb.retrieve(t for h in hits for t in h["attack"])
+            ]
+        summary = self.llm.summarize(case)
+        case["ozet"], case["ozet_kaynagi"], case["guvenlik"] = summary.text, summary.source, summary.security
         case["rapor"] = TemplateReporter.render(case)
         self.cases.append(case)
         with open(self.out / "cases" / f"{case['case_id']}.json", "w", encoding="utf-8") as f:

@@ -30,7 +30,7 @@ VERİ TOPLAMA (OCSF-lite) ─▶ KİMLİK EŞLEŞTİRME ─▶ VERİ KALİTESİ 
 | Prediction | `ztp/prediction.py` | Yörünge + rejim değişimi; İK sinyalleri; 7 günlük ufuk |
 | Tespit | `ztp/detection/` | Detection-as-code (`rules/*.yaml`), güvenli ifade değerlendirici, yaşam döngüsü, gölge mod, bastırma |
 | Skorlama | `ztp/scoring.py` | Çarpanlar (×2.5 farklı taktik), yüzdelik, alarm bütçesi + kritik istisna, açık vaka |
-| Raporlama | `ztp/reporting/` | Deterministik şablon her zaman; LLM (Ollama / Anthropic) yalnızca kanıta bağlı özet, çıktı doğrulamalı |
+| Raporlama | `ztp/reporting/` | Deterministik şablon her zaman; LLM (Ollama / Anthropic) yalnızca kanıta bağlı özet; injection'a kapalı istem, bütünlük doğrulamalı ATT&CK bilgi tabanı (RAG), sıkı çıktı doğrulaması |
 | Geri besleme / ölçüm | `ztp/feedback.py`, `ztp/metrics.py` | Etiket deposu, FP sebebi zorunlu, kapsama/erkenlik/precision@k, kural sağlığı, sistem sağlığı |
 | Orkestrasyon | `ztp/pipeline.py`, `ztp/cli.py` | Müşteri bazında izole koşu; CLI |
 
@@ -53,7 +53,7 @@ ztp --synthetic --users 150 --days 30 --budget 8 --out ./ztp_out
 ztp --synthetic --llm ollama --ollama-model gemma3:12b     # lokal LLM ile rapor (şablon her zaman yedek)
 ztp --out ./ztp_out --tenant musteri-A --label C-20260830-2493 --decision yanlis_pozitif --reason bilinen_istisna --analyst a1
 ztp --config configs/tenant.example.yaml --synthetic
-pytest                                             # 40 test (~1 dk; uçtan uca test dahil)
+pytest                                             # 57 test (~1 dk; uçtan uca ve LLM güvenlik testleri dahil)
 ```
 
 Çıktılar `ztp_out/<tenant>/` altında: `queue_<gün>.txt` (analist kuyruğu), `cases/*.json`, `metrics.json`,
@@ -104,6 +104,9 @@ ağırlık, bastırma, sahip, runbook, kanıt aileleri ve **test senaryoları**.
 - **Tahmin engellemez:** erişim kısıtlama yalnızca doğrulanmış olay + yetkili insan kararıyla (`authorize_containment`).
 - **Gizlilik varsayılan:** analist takma ad görür; kimlik açma ikinci onay ve denetim izi gerektirir.
 - **Sessizce yanlış çalışmaktansa açıkça durmak:** kaynak kalitesi düşerse bağımlı tespitler askıya alınır; uyarı hacmi bir sağlık metriğidir.
+- **LLM/RAG injection'a kapalı:** log kaynaklı her metin veridir — kanonikleştirilir, talimat benzeri içerik redakte edilip
+  bayraklanır, nonce'lu yapısal bloklarda modele gider; RAG yalnızca teknik kimliğiyle, SHA-256 doğrulamalı bilgi tabanından
+  getirir; çıktı olay kimliği/takma ad/sayı/aksiyon dili açısından doğrulanmadan analiste ulaşmaz. Ayrıntı: [docs/llm-security.md](docs/llm-security.md).
 
 ## Bilinen sınırlar
 

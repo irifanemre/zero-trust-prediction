@@ -25,7 +25,7 @@ bilinen sınırları özetler. Doküman bölüm numaraları köşeli parantez i�
 | 13.2–13.5 | Skor formülü, çarpanlar, yüzdelik kalibrasyon, alarm bütçesi | `scoring.RiskScorer` |
 | 13.6 | Gölge mod | `durum: golge-modda` → `shadow_log.jsonl` |
 | 7.3 | Kademeli müdahale; tahmin engellemez | `response` |
-| 15 | LLM yalnızca raporlamada; kanıta bağlı; şablon yedek; çıktı doğrulaması | `reporting.llm.LLMReporter`, `reporting.template` |
+| 15 | LLM yalnızca raporlamada; kanıta bağlı; şablon yedek; çıktı doğrulaması; injection'a kapalı istem; RAG bilgi tabanı | `reporting.llm`, `reporting.sanitize`, `reporting.rag`, `reporting.template` |
 | 18 | Analist arayüzü | `reporting.template.TemplateReporter` |
 | 11.8 / 17.3 | Etiket deposu, FP sebebi zorunlu, ×0.2 çarpanı | `feedback.LabelStore` |
 | 17.5 | Sistem sağlığı | `metrics.HealthMonitor` |

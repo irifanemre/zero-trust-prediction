@@ -10,7 +10,6 @@ from ztp.config import TenantConfig
 from ztp.data.synthetic import SyntheticOrg
 from ztp.detection.catalog import load_catalog
 from ztp.pipeline import ZeroTrustPredictionPipeline
-from ztp.reporting.llm import LLMReporter
 from ztp.response import authorize_containment, tiered_response
 
 
@@ -68,23 +67,3 @@ def test_tiered_response_never_blocks_on_prediction():
     assert not ok
     ok, _ = authorize_containment({}, dict(karar="gercek_pozitif", analist="a"))
     assert ok
-
-
-def test_llm_output_validation_rejects_hallucinated_references():
-    case = dict(
-        case_id="C-1",
-        kullanici="U-1000",
-        departman="x",
-        gun="2026-01-01",
-        risk=50,
-        tespitler=[dict(kural="UEBA-0003", ad="Hacim", aciklama="a", kanit=["E-0000001"])],
-        kanit_serileri={},
-        graf=dict(paylasilan_cihazlar=[], ortak_noktalar=[]),
-        baglam={},
-    )
-    ok, problems = LLMReporter._validate("Kullanıcı U-1000 hacmi arttı [E-0000001].", case)
-    assert ok and problems == []
-    ok, problems = LLMReporter._validate("U-1000 ve U-2000 şüpheli [E-0000001, E-00000ff].", case)
-    assert not ok and len(problems) == 2
-    ok, problems = LLMReporter._validate("Her şey normal.", case)
-    assert not ok

@@ -1,0 +1,78 @@
+# Bilgi tabanı — MITRE ATT&CK alt kümesi (Türkçe özet). Yalnızca RAG bağlamı ve analist açıklaması için (ADR-009);
+# skorlamaya girmez. Kaynak: MITRE ATT&CK (attack.mitre.org), özetler bu projede yazılmıştır.
+# Bütünlük: MANIFEST.sha256 ile doğrulanır; dosya değiştirilirse yükleyici reddeder (bilgi tabanı zehirlenmesine karşı).
+version: "2026.09-1"
+source: "MITRE ATT&CK v15 (özet)"
+techniques:
+  T1078:
+    name: Valid Accounts
+    tactic: Initial Access
+    summary: Saldırgan meşru hesap kimlik bilgilerini kullanarak erişim sağlar; etkinlik normal kullanıcı trafiğine karışır.
+    detection: Hesabın alışılmış saat, cihaz, konum ve kaynak profilinden sapma; aynı hesabın kısa sürede uzak konumlardan kullanımı.
+    mitigations: Çok faktörlü kimlik doğrulama, ayrıcalıklı hesap yönetimi, hesap kullanım ilkeleri, parola ilkeleri.
+  T1078.003:
+    name: "Valid Accounts: Local Accounts"
+    tactic: Persistence
+    summary: Yerel/yeni verilmiş yetkilerin, iş tanımıyla ilgisiz kaynaklara erişim için kullanılması.
+    detection: Yetki değişimi sonrası kaynak çeşitliliğinde kırılma; yetkinin kapsam dışı alanlarda kullanımı.
+    mitigations: En az ayrıcalık, yetki değişikliklerinin gözden geçirilmesi, ayrıcalıklı erişim yönetimi.
+  T1204:
+    name: User Execution
+    tactic: Execution
+    summary: Kullanıcının kötü amaçlı bir dosyayı çalıştırması veya bağlantıyı açması; genellikle sosyal mühendislikle tetiklenir.
+    detection: Daha önce görülmemiş uygulama/kategori kullanımı, indirilen çalıştırılabilir dosyalar, olağandışı süreç zincirleri.
+    mitigations: Uygulama izin listeleri, kullanıcı farkındalığı, ağ izinsiz giriş önleme.
+  T1567:
+    name: Exfiltration Over Web Service
+    tactic: Exfiltration
+    summary: Verinin meşru web servisleri (bulut depolama, yapıştırma siteleri) üzerinden dışarı çıkarılması.
+    detection: Kişisel/akran baseline'ına göre veri çıkış hacminde sıçrama; bulut depolama kategorisinin ilk kez görülmesi.
+    mitigations: Web trafiği filtreleme, veri kaybı önleme, onaylı bulut servisleri listesi.
+  T1110:
+    name: Brute Force
+    tactic: Credential Access
+    summary: Parola tahmini veya deneme-yanılma ile kimlik bilgisi elde etme girişimi.
+    detection: Kısa sürede başarısız giriş yığını (Poisson beklentisinin çok üstünde), ardından başarılı giriş.
+    mitigations: Hesap kilitleme ilkeleri, çok faktörlü doğrulama, parola ilkeleri.
+  T1039:
+    name: Data from Network Shared Drive
+    tactic: Collection
+    summary: Ağ paylaşımlarından verinin toplu olarak toplanması.
+    detection: Dosya erişim sayısında ve çeşitliliğinde beklenmedik artış, özellikle mesai dışı.
+    mitigations: Paylaşım erişim denetimi, erişim kayıtlarının izlenmesi, veri sınıflandırma.
+  T1530:
+    name: Data from Cloud Storage
+    tactic: Collection
+    summary: Bulut depolama alanlarından verinin toplanması.
+    detection: Bulut depolama erişimlerinde hacim/çeşitlilik artışı; yeni depolama alanlarına erişim.
+    mitigations: Bulut erişim ilkeleri, çok faktörlü doğrulama, erişim kayıtlarının izlenmesi.
+  T1087:
+    name: Account Discovery
+    tactic: Discovery
+    summary: Hesapların ve grupların keşfi (ör. dizin sorguları); genellikle yanal hareketten önce gelir.
+    detection: Keşif araçlarının (whoami, net, nltest, dizin sorguları) olağandışı yoğunlukta kullanımı; yeni hesaplarda geniş keşif.
+    mitigations: Keşif çıktısının sınırlanması, ayrıcalıklı hesapların gizlenmesi, işletim sistemi yapılandırması.
+  T1018:
+    name: Remote System Discovery
+    tactic: Discovery
+    summary: Ağdaki diğer sistemlerin keşfi.
+    detection: Kısa sürede çok sayıda farklı sunucu/kaynağa erişim; keşif süreçleri.
+    mitigations: Ağ bölümleme, keşif trafiğinin izlenmesi.
+  T1562:
+    name: Impair Defenses
+    tactic: Defense Evasion
+    summary: Güvenlik araçlarının devre dışı bırakılması veya log akışının kesilmesi.
+    detection: Cihaz kullanımdayken uç nokta telemetrisinin kesilmesi — veri yokluğu da sinyaldir.
+    mitigations: Ajan bütünlük koruması, log toplama sağlığı izleme, yönetici ayrıcalıklarının sınırlanması.
+  T1052:
+    name: Exfiltration Over Physical Medium
+    tactic: Exfiltration
+    summary: Verinin taşınabilir medya (USB) ile dışarı çıkarılması.
+    detection: Taşınabilir medya kullanımının ilk kez görülmesi veya günlük/haftalık kullanımda belirgin artış; mesai dışı kullanım.
+    mitigations: Taşınabilir medya ilkeleri, cihaz denetimi, veri kaybı önleme.
+  T1021:
+    name: Remote Services
+    tactic: Lateral Movement
+    summary: Meşru uzak servisler veya başka kullanıcıların makineleri üzerinden yayılma.
+    detection: Başkasına atanmış cihazdan giriş, paylaşılan cihaz üzerinden kritik varlığa zaman-sıralı yol.
+    mitigations: Ağ bölümleme, çok faktörlü doğrulama, uzak erişim ilkeleri, ayrıcalıklı hesap yönetimi.
