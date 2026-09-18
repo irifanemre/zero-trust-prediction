@@ -56,6 +56,11 @@ kapasitesi 3 ise precision 0,22'ye çıkar; hangi N'in doğru olduğu ürün de�
 sezgisel model AUC 0,61 / Brier 0,025 (taban 0,0084'ten kötü); öğrenen lojistik model AUC **0,86** / Brier **0,0081** /
 ECE 0,0016. Ayrıntı ve yorum: `docs/prediction.md`.
 
+## Ablasyon (r4.2, 60 gün, `--ablation`)
+
+Akran bağlamı kapatılınca kapsama 16/26 → 13/26 (en değerli bileşen); prediction ve ilişkisel kurallar kapatılınca sonuç
+değişmiyor (bu veride katkıları ölçülemedi — İK sinyali yok); çarpanlar küçük pozitif katkı. Tablo: `docs/prediction.md`.
+
 ## r1 koşusu (gürültü tabanı)
 
 r1'in cevap anahtarı yoktur; 1000 benign kullanıcıda günde ≈ 7,8 vaka üretildi (bütçe 10). r1'in http hacmi aşırı

@@ -68,6 +68,26 @@ Aynı veri, aynı kod; bir bileşen kapalı: `prediction_yok` (PRED-* gölge), `
 (13.3 çarpanlar kapalı), `akran_yok` (yalnızca kişisel baseline). Çıktı: kapsama, vaka hacmi, precision@N/@3, erkenlik,
 tahmin AUC ve referansa göre Δ. Δ ≈ 0 ise bileşen bu veride değer üretmemiştir — 14.5'e göre devreye alınmaz.
 
+**CERT r4.2 ablasyonu** (`--days 60`, 26 insider, bütçe 10):
+
+| Varyant | Kapsama | Δ | prec@N | Δ | prec@3 | Tahmin AUC |
+|---|---|---|---|---|---|---|
+| tam (referans) | 16/26 | — | 0,081 | — | 0,189 | 0,640 |
+| prediction_yok (PRED-* gölge) | 16/26 | 0 | 0,081 | 0 | 0,189 | 0,640 |
+| iliskisel_yok (REL-* gölge) | 16/26 | 0 | 0,081 | 0 | 0,189 | 0,640 |
+| carpan_yok | 16/26 | 0 | 0,077 | −0,004 | 0,178 | 0,640 |
+| akran_yok | **13/26** | **−0,12** | 0,068 | −0,013 | 0,156 | 0,609 |
+
+Bulgular (dürüst okuma):
+- **Akran bağlamı en değerli bileşen**: kapatılınca kapsama 16→13, precision ve tahmin AUC düşüyor. Dokümanın
+  "akran kıyası yanlış pozitifi düşüren en etkili sinyallerden biri" iddiası (11.4) bu veride doğrulandı.
+- **Prediction kuralları (PRED-0011/12/13/14) CERT'te hiçbir şey katmıyor**: kapatılınca sonuç birebir aynı.
+  Sebep açık — 11/13/14 İK sinyali gerektiriyor (CERT'te yok), 12 nadiren tetikleniyor. 14.5'e göre bu kurallar
+  bu veride "hak edilmiş" değildir. Öte yandan öğrenen 7g olasılığı AUC 0,86 ile sıralıyor: prediction katmanının
+  değeri kurallardan değil, kalibre olasılıktan geliyor. Sonraki adım: `prediction_weight > 0` varyantıyla
+  öğrenen modelin kuyruk kalitesine etkisini ölçmek (model önce eğitilip durum deposundan yüklenmeli).
+- İlişkisel kurallar (REL-*) bu pencerede fark yaratmadı; çarpanlar küçük ama pozitif katkı sağlıyor.
+
 ## Hâlâ eksik olan
 
 - CERT'te İK sinyalleri (ayrılık bildirimi, yetki değişimi, izin takvimi) yoktur → PRED-0011/13/14 gerçek veride ölçülemedi.
