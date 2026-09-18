@@ -285,6 +285,7 @@ class ZeroTrustPredictionPipeline:
                     self.profile.edr_days[r.device].add(pd.Timestamp(r.day))
                 if r.ad_users:
                     self.profile.ad_users_on_device[(r.device, pd.Timestamp(r.day))] = set(r.ad_users)
+            self.profile._account_device_rows(device_day)
             self.profile._refresh_shared_devices()
         dq = st.get_frame("dq_daily")
         if dq is not None and len(dq):

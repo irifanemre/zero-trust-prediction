@@ -66,6 +66,7 @@ class ProfileEngine:
         self.edr_days: Dict[str, Set[pd.Timestamp]] = defaultdict(set)
         self.ad_users_on_device: Dict[Tuple[str, pd.Timestamp], Set[str]] = {}
         self.shared_devices: Set[str] = set()
+        self._dev_stats: Dict[str, list] = {}  # cihaz → [toplam oturum, sahibin oturumu, kullanıcı kümesi]
 
     # ---- artımlı besleme ------------------------------------------------------
     def append(self, feats: pd.DataFrame, device_day: pd.DataFrame) -> None:
@@ -80,6 +81,7 @@ class ProfileEngine:
                     self.edr_days[r.device].add(pd.Timestamp(r.day))
                 if r.ad_users:
                     self.ad_users_on_device[(r.device, pd.Timestamp(r.day))] = set(r.ad_users)
+            self._account_device_rows(device_day)
             self._refresh_shared_devices()
         if feats is None or feats.empty:
             return
@@ -102,21 +104,26 @@ class ProfileEngine:
         for dev in list(self.edr_days):
             self.edr_days[dev] = {d for d in self.edr_days[dev] if d >= before}
         self.ad_users_on_device = {k: v for k, v in self.ad_users_on_device.items() if k[1] >= before}
+        self._dev_stats = {}
+        self._account_device_rows(self.device_day)   # budama sonrası istatistikler kalan tablodan yeniden kurulur
+        self._refresh_shared_devices()
+
+    def _account_device_rows(self, rows: pd.DataFrame) -> None:
+        """Cihaz istatistiklerini artımlı günceller: toplam oturum, sahibin oturumu, farklı kullanıcı kümesi."""
+        for r in rows.itertuples(index=False):
+            if not r.ad_users:
+                continue
+            st = self._dev_stats.setdefault(r.device, [0, 0, set()])
+            owner = self.owner_of_device.get(r.device)
+            for u, n in r.ad_users.items():
+                st[0] += int(n)
+                st[2].add(u)
+                if owner == u:
+                    st[1] += int(n)
 
     def _refresh_shared_devices(self) -> None:
         """Laboratuvar/kiosk: ≥3 farklı kullanıcı VE atanmış sahibinin oturum payı <%50 (atanmış PC'de sahip baskındır)."""
-        totals: Dict[str, int] = defaultdict(int)
-        owner_n: Dict[str, int] = defaultdict(int)
-        users: Dict[str, Set[str]] = defaultdict(set)
-        for r in self.device_day.itertuples(index=False):
-            if not r.ad_users:
-                continue
-            for u, n in r.ad_users.items():
-                totals[r.device] += int(n)
-                users[r.device].add(u)
-                if self.owner_of_device.get(r.device) == u:
-                    owner_n[r.device] += int(n)
-        self.shared_devices = {d for d, n in totals.items() if len(users[d]) >= 3 and (owner_n[d] / max(n, 1)) < 0.5}
+        self.shared_devices = {d for d, (n, own, users) in self._dev_stats.items() if len(users) >= 3 and (own / max(n, 1)) < 0.5}
 
     def _foreign(self, sid: str, devices) -> int:
         """Akran bağlam düzelticisi (11.4) için: kullanıcı o gün atanmamış/yabancı bir cihaz kullandı mı?"""
