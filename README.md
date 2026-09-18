@@ -87,7 +87,8 @@ Cevap anahtarı etiket rolünde precision: **@1 = 0,39 · @3 = 0,22 · @5 = 0,14
 kuyruğa giren 263 kullanıcının 27'si insider. Bütçe sessiz günlerde tek-sinyalli benign kullanıcılarla dolar — bu,
 sabit eşik yerine kapasite tabanlı kuyruk tasarımının bilinçli sonucudur ve `precision@k` eğrisiyle raporlanır.
 
-Ayrıntılar ve sınırlar: [docs/cert-validation.md](docs/cert-validation.md). Önemli uyarı: kurallar r4.2 sonuçları
+Prediction katmanı (7 günlük olasılık), aynı veride zamansal holdout ile: sezgisel model AUC 0,61 → öğrenen model
+**AUC 0,86, ECE 0,002** (Brier 0,0081 ≈ taban 0,0084). Ayrıntılar ve sınırlar: [docs/cert-validation.md](docs/cert-validation.md). Önemli uyarı: kurallar r4.2 sonuçları
 görüldükten sonra ayarlanmıştır; yansız rakam için henüz bakılmamış bir sürümde (r5.2/r6.2) tekrar gerekir.
 
 ## Tespit kataloğu (`src/ztp/detection/rules/`)

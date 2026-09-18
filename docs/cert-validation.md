@@ -50,6 +50,12 @@ Yorum: bütçe her gün dolar; aktif insider olmayan günlerde kuyruk tek-sinyal
 Bu, sabit eşik yerine kapasite tabanlı kuyruk tasarımının bilinçli sonucudur ("sessiz günlerde kapsama"). Analist
 kapasitesi 3 ise precision 0,22'ye çıkar; hangi N'in doğru olduğu ürün değil operasyon kararıdır.
 
+## Prediction katmanı kalibrasyonu (r4.2, `--train-prediction`)
+
+7 günlük olasılığın gerçekleşmeyle karşılaştırılması (cevap anahtarı etiket rolünde; zamansal holdout = son 33 gün):
+sezgisel model AUC 0,61 / Brier 0,025 (taban 0,0084'ten kötü); öğrenen lojistik model AUC **0,86** / Brier **0,0081** /
+ECE 0,0016. Ayrıntı ve yorum: `docs/prediction.md`.
+
 ## r1 koşusu (gürültü tabanı)
 
 r1'in cevap anahtarı yoktur; 1000 benign kullanıcıda günde ≈ 7,8 vaka üretildi (bütçe 10). r1'in http hacmi aşırı

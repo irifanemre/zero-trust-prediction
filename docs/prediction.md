@@ -43,7 +43,18 @@ Sentetik koşu, holdout 15 gün / 1658 satır / 13 pozitif:
 | Lojistik (öğrenen) | **0,016** | **0,993** | **0,028** |
 | Taban oranı | 0,008 | — | — |
 
-CERT r4.2 sonuçları için `docs/cert-validation.md`.
+**CERT r4.2** (1000 kullanıcı, 90 gün, 72.468 varlık-gün, 699 pozitif satır; holdout = son 33 gün, 19.787 satır, 168 pozitif):
+
+| | Brier | Beceri (taban 0,0084) | AUC | ECE |
+|---|---|---|---|---|
+| Sezgisel (başlangıç) | 0,0251 | **−1,99** (taban orandan kötü) | 0,609 | 0,063 |
+| Lojistik (öğrenen, görmediği 33 gün) | **0,0081** | +0,04 | **0,858** | **0,0016** |
+
+Yorum: elle yazılmış katsayılar gerçek veride hem kötü sıralıyor hem aşırı olasılık veriyor; öğrenen model
+kalibrasyonu düzeltiyor ve sıralamayı belirgin iyileştiriyor. Beceri skorunun taban orana yakın olması
+beklenen bir durumdur: 7 günlük ufukta pozitif oranı %0,8 iken "kimin" değil "ne kadar olası" sorusu zordur —
+AUC 0,86 kimin sorusuna cevap verir. Bu rakamlar cevap anahtarı etiket rolündeyken ölçüldü; üretimde etiket
+analistten gelir ve aynı rapor `metrics.json → tahmin_kalibrasyonu` altında üretilir.
 
 ## Skora etkisi (14.6)
 
