@@ -67,17 +67,17 @@ schema, stats
 
 ## Bilinen sınırlar ve yol haritası
 
-1. **Kalıcı durum yok.** Baseline, tespit geçmişi, yüzdelik havuzu ve açık vakalar her koşuda yeniden hesaplanır.
-   Günlük servis için depo katmanı (Parquet/DuckDB) ve artımlı baseline gerekir.
-2. **Öğrenen sıralama yok.** 200 etiket eşiği sağlandığında kural skorunun üstüne eklenen (onu ezmeyen) denetimli
-   sıralayıcı — bugün yalnızca hazırlık bayrağı var.
-3. **Prediction katmanı gerçek veride kısmen doğrulandı.** CERT'te İK sinyalleri (yetki değişimi, ayrılık bildirimi,
-   izin takvimi) bulunmadığından PRED-0011/13/14 yalnızca sentetik veride sınandı. Ablasyon koşusu otomatik değil.
+1. ~~Kalıcı durum yok.~~ **Çözüldü:** `state.py` SQLite durum deposu; `--daily` artımlı mod; toplu≡artımlı eşdeğerlik testi.
+2. ~~Öğrenen sıralama yok.~~ **Kısmen çözüldü:** `prediction_model.py` lojistik model (JSON, sürümlü, geri alınabilir),
+   zamansal holdout ile kalibrasyon; skora ekleme `prediction_weight` ile (varsayılan 0 — ablasyonla doğrulanmadan açılmaz).
+3. ~~Ablasyon otomatik değil.~~ **Çözüldü:** `ztp --ablation` (prediction / ilişkisel / çarpan / akran varyantları).
+   CERT'te İK sinyalleri bulunmadığından PRED-0011/13/14 hâlâ yalnızca sentetik veride sınanabiliyor.
 4. **Döngüsel doğrulama riski.** Kurallar r4.2 sonuçları görüldükten sonra ayarlandı; yansız ölçüm için r5.2/r6.2'de
    tekrar gerekir.
 5. **Bilgi grafı örnek alt küme.** ATT&CK STIX beslemesi ve tehdit istihbaratı entegrasyonu yok.
 6. **Gizlilik iskelet düzeyinde.** Kimlik kasası düz dosya; saklama süreleri ve silme hakkı uygulanmadı; rol ayrımı
    zorlanmıyor.
-7. **Entegrasyon yok.** Çıktı dosya tabanlı; SOAR/ticketing bağlantısı ve runbook içerikleri eksik.
-8. **Ölçek.** 1000 kullanıcı × 111 gün ≈ 8 dk (tek makine). Her gün 90 günlük pencere yeniden hesaplanır; artımlı
-   istatistik ve vektörleştirme ile 5–10× kazanç mümkün.
+7. ~~Entegrasyon yok.~~ **Çözüldü:** imzalı webhook + JSONL sink'leri (`integrations.py`); 18 runbook içeriği ve katalog
+   doğrulaması.
+8. **Ölçek.** 1000 kullanıcı × 111 gün ≈ 8 dk (tek makine). Günlük mod yalnızca bir günü işler; günlük bağlam
+   hesabı (90 günlük pencere groupby'ları) hâlâ her gün yeniden yapılır.

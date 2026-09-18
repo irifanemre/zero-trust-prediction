@@ -12,6 +12,7 @@ import pandas as pd
 from ztp.config import TenantConfig
 from ztp.detection.engine import DetectionEngine
 from ztp.feedback import LabelStore
+from ztp.prediction_model import calibration_report
 from ztp.schema import DAY
 from ztp.scoring import RiskResult
 from ztp.stats import mad, robust_z
@@ -221,6 +222,38 @@ class MetricsCollector:
             )
         return rows
 
+    def outcomes(self, rows: List[dict], horizon_days: int = 7, labels: Optional[LabelStore] = None) -> List[int]:
+        """Her tahmin satırı için gerçekleşme: kullanıcı [gün, gün+ufuk] içinde doğrulanmış vakaya konu oldu mu?
+        Etiketli test verisinde cevap anahtarı penceresi (aktif senaryo), üretimde analistin 'gerçek_pozitif' etiketi kullanılır."""
+        windows = defaultdict(list)
+        if labels is not None and labels.labels:
+            for lab in labels.labels:
+                if lab["karar"] == "gercek_pozitif" and lab.get("sid"):
+                    d = pd.Timestamp(lab["gun"])
+                    windows[lab["sid"]].append((d, d))
+        else:
+            for g in self.gt:
+                if not g.get("negatif"):
+                    w = g.get("pencere") or [g.get("baslangic_tarihi"), g.get("olay_tarihi")]
+                    windows[g["sid"]].append((pd.Timestamp(w[0]), pd.Timestamp(w[1])))
+        out = []
+        for r in rows:
+            d = pd.Timestamp(r["gun"])
+            out.append(int(any(a <= d + horizon_days * DAY and b >= d for a, b in windows.get(r["sid"], []))))
+        return out
+
+    def prediction_calibration(self, rows: List[dict], labels: Optional[LabelStore] = None) -> Optional[dict]:
+        """19.4/19.5: 7 günlük olasılığın kalibrasyonu (Brier, beceri skoru, AUC, güvenilirlik). Modelsiz hâl (sezgisel) kontrol grubu olarak
+        her zaman raporlanır (14.6)."""
+        if not rows:
+            return None
+        y = self.outcomes(rows, labels=labels)
+        rep = dict(kaynak=("analist_etiketi" if (labels is not None and labels.labels) else "cevap_anahtari"))
+        rep["sezgisel"] = calibration_report([r["p7_sezgisel"] for r in rows], y)
+        if any(r.get("p7") != r.get("p7_sezgisel") for r in rows):
+            rep["model"] = calibration_report([r["p7"] for r in rows], y)
+        return rep
+
     def summary(
         self,
         labels: LabelStore,
@@ -228,6 +261,7 @@ class MetricsCollector:
         suppressed_log: List[dict],
         engine: DetectionEngine,
         last_day: pd.Timestamp,
+        prediction_rows: Optional[List[dict]] = None,
     ) -> dict:
         cov = self.coverage()
         positives = [c for c in cov if "negatif" not in c["senaryo"].lower()]
@@ -276,5 +310,6 @@ class MetricsCollector:
                 yayina_giris_kriteri=f"precision ≥ %{self.cfg.shadow_min_precision * 100:.0f} ve günlük ort. ≤ {self.cfg.shadow_max_daily_alerts} (etiket gerekli)",
             ),
             bilesen_katkisi={k: round(v / total_c, 3) for k, v in sorted(self.contrib.items(), key=lambda kv: -kv[1])},
+            tahmin_kalibrasyonu=self.prediction_calibration(prediction_rows or [], labels if labels.labels else None),
             recall_notu="Recall yalnızca etiketli test verisinde (CERT/sentetik) ölçülür; üretim hedefi değildir (1.3).",
         )

@@ -11,8 +11,10 @@ from typing import Optional, Sequence
 
 import pandas as pd
 
+from ztp.ablation import format_ablation, run_ablation
 from ztp.config import TenantConfig
 from ztp.data.cert import load_cert_dataset
+from ztp.data.files import dataset_from_files
 from ztp.data.synthetic import SyntheticOrg
 from ztp.detection.catalog import load_catalog
 from ztp.detection.testing import run_rule_tests
@@ -20,6 +22,7 @@ from ztp.feedback import FP_REASONS, LabelStore
 from ztp.pipeline import ZeroTrustPredictionPipeline
 from ztp.response import authorize_containment
 from ztp.schema import DAY
+from ztp.state import StateStore
 
 LOG = logging.getLogger(__name__)
 
@@ -50,6 +53,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     src.add_argument("--synthetic", action="store_true", help="sentetik kurum + enjekte senaryolar (kör test/regresyon)")
     src.add_argument("--cert-dir", help="CERT Insider Threat dizini, ör. cert_data/r4.2 (birincil doğrulama)")
     ap.add_argument("--answers-dir", help="CERT cevap anahtarı dizini (varsayılan: <cert-dir>/../answers)")
+    # günlük servis modu: durum deposundan devam eder, yalnızca verilen günün olaylarını işler
+    ap.add_argument("--daily", metavar="YYYY-MM-DD", help="artımlı gün işleme (durum deposu gerekir)")
+    ap.add_argument("--events", help="OCSF-lite olay dosyası (csv/parquet) — --daily ile")
+    ap.add_argument("--directory", help="İK/AD dizin dosyası (csv/parquet) — --daily ile")
+    ap.add_argument("--leases", help="IP kiralama dosyası (ip,sid,start,end)")
+    ap.add_argument("--leaves", help="izin takvimi dosyası (sid,start,end,tur)")
+    ap.add_argument("--state", action="store_true", help="toplu koşu sonunda durumu kaydet (günlük moda geçiş için)")
+    ap.add_argument("--force", action="store_true", help="su seviyesi geçilmiş günü yeniden işle")
+    ap.add_argument(
+        "--train-prediction", action="store_true", help="koşu sonunda 7g olasılık modelini eğit (zamansal holdout ile raporla)"
+    )
+    ap.add_argument(
+        "--ablation", action="store_true", help="19.5 ablasyon: bileşenleri tek tek kapatıp kapsama/precision farkını ölç"
+    )
     ap.add_argument("--config", help="müşteri yapılandırma dosyası (YAML); komut satırı değerleri dosyayı ezer")
     ap.add_argument("--tenant", default="musteri-A")
     ap.add_argument("--users", type=int, default=150)
@@ -82,7 +99,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             sys.exit("--decision zorunlu")
         cmd_label(args)
         return 0
-    if not args.synthetic and not args.cert_dir:
+    if args.daily:
+        return cmd_daily(args, catalog)
+    if not args.synthetic and not args.cert_dir and not (args.events and args.directory):
         args.synthetic = True
         LOG.info("Kaynak belirtilmedi; sentetik veri kullanılıyor")
 
@@ -94,6 +113,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.synthetic:
         n_days = cfg.long_window_days + args.warmup + args.days
         data = SyntheticOrg(n_users=args.users, n_days=n_days, eval_days=args.days, end_day=end, seed=args.seed).build()
+    elif args.events and args.directory:  # toplu ısınma dosyalardan (günlük moda geçiş öncesi): --state ile durum kaydedilir
+        if not args.end:
+            sys.exit("Dosya girişinde --end zorunludur")
+        data = dataset_from_files(args.events, args.directory, args.leases, args.leaves, cfg.critical_assets)
+        cfg.available_sources = tuple(sorted(set(data.events["source"].unique()) | {"hr"}))
     else:
         if not args.end:
             sys.exit("CERT için --end (veri aralığı içinde bir gün, ör. 2010-11-30) zorunludur")
@@ -106,8 +130,54 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         cfg.available_sources = tuple(sorted(set(data.events["source"].unique()) | {"hr"}))
         LOG.info("Mevcut kaynaklar: %s", cfg.available_sources)
     start = end - (args.days - 1) * DAY
-    pipe = ZeroTrustPredictionPipeline(cfg, data, catalog, Path(args.out))
+    if args.ablation:
+        table = run_ablation(cfg, data, catalog, Path(args.out), start, end, args.warmup)
+        print(format_ablation(table))
+        return 0
+    state = StateStore(Path(args.out) / cfg.tenant_id / cfg.state_file) if args.state else None
+    pipe = ZeroTrustPredictionPipeline(cfg, data, catalog, Path(args.out), state=state)
     pipe.run(start, end, args.warmup)
+    if args.train_prediction:
+        rep = pipe.train_prediction_model()
+        if rep.get("egitildi"):
+            ho, hs, h = rep.get("holdout_model") or {}, rep.get("holdout_sezgisel") or {}, rep.get("holdout", {})
+            print(
+                f"Tahmin modeli eğitildi ({rep['kaynak']}, n={rep['model']['n_train']}, pozitif={rep['model']['positives']}). "
+                f"Holdout ({h.get('gun')} gün, {h.get('satir')} satır, {h.get('pozitif')} pozitif) — "
+                f"Brier: model {ho.get('brier')} vs sezgisel {hs.get('brier')} (taban {ho.get('brier_taban')}) | "
+                f"AUC: model {ho.get('auc')} vs sezgisel {hs.get('auc')} | ECE: model {ho.get('ece')} vs sezgisel {hs.get('ece')}"
+                + ("  ⚠ holdout'ta pozitif yok: kalibrasyon ölçülemedi" if not h.get("pozitif") else "")
+            )
+            print("Katsayılar:", rep["katsayilar"])
+        else:
+            print(f"Tahmin modeli eğitilmedi: {rep.get('neden')}")
+    return 0
+
+
+def cmd_daily(args, catalog) -> int:
+    """Günlük servis: `ztp --daily 2026-09-17 --events gun.parquet --directory dizin.csv --config musteri.yaml --out ./ztp_out`.
+    Su seviyesi aşılmamış günler sırayla işlenir; aynı gün ikinci kez `--force` olmadan işlenmez (idempotent)."""
+    if not args.directory:
+        sys.exit("--daily için --directory zorunludur")
+    overrides = dict(
+        tenant_id=args.tenant, alarm_budget_per_day=args.budget, llm_backend=args.llm, ollama_model=args.ollama_model
+    )
+    cfg = TenantConfig.from_yaml(args.config, **overrides) if args.config else TenantConfig(**overrides)
+    data = dataset_from_files(args.events, args.directory, args.leases, args.leaves, cfg.critical_assets)
+    state = StateStore(Path(args.out) / cfg.tenant_id / cfg.state_file)
+    day = pd.Timestamp(args.daily).normalize()
+    events = data.events
+    if len(events):
+        events = events[events["time"].dt.normalize() == day]
+        if events.empty:
+            LOG.warning("%s için olay yok — gün yine de işlenir (uyarı hacmi düşüşü sağlık metriğine yansır)", day.date())
+    pipe = ZeroTrustPredictionPipeline(cfg, data, catalog, Path(args.out), state=state)
+    try:
+        cases = pipe.run_incremental(day, events, force=args.force)
+    except ValueError as exc:  # idempotentlik: su seviyesi geçilmiş gün
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(f"{day.date()}: {len(cases)} vaka, su seviyesi → {state.watermark.date()}, durum: {state.path}")
     return 0
 
 

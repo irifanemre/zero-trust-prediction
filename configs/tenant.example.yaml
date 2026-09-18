@@ -54,5 +54,23 @@ suppressions:
     reason: "aylık kapanış toplu raporlama"
     owner: "finans-it"
 
+# 17.6 Vaka çıkışı (SOAR / ticketing); gerçek kimlik gönderilmez, webhook gövdesi HMAC-SHA256 ile imzalanır
+sinks:
+  - type: jsonl
+  # - type: webhook
+  #   url: https://soar.example/api/ztp
+  #   secret_env: ZTP_WEBHOOK_SECRET
+  #   headers: {Authorization: "Bearer ..."}
+  #   timeout: 10
+  #   retries: 3
+
+# Kalıcı durum (günlük servis modu): müşteri dizinindeki SQLite dosyası
+state_file: state.sqlite
+
+# 19.5 ablasyon anahtarları (üretimde true); 14.6 öğrenen modelin skora eklenme ağırlığı (0 = kapalı)
+correlation_multipliers: true
+peer_context: true
+prediction_weight: 0.0
+
 # Üretimde KMS/vault'tan gelir
 pseudonym_secret: degistir-bu-anahtari

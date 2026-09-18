@@ -64,10 +64,18 @@ class RiskScorer:
             mult["ayrilik_bildirimi"] = 1.8
         if signals.get("ayricalikli") == 1:
             mult["ayricalikli_hesap"] = 1.5
+        if not self.cfg.correlation_multipliers:  # 19.5 ablasyon: çarpanlar kapalı
+            mult = {}
         if today and self.labels.fp_pattern_match(sid, {h.rule_id for h in today}, day):
             mult["daha_once_normal"] = 0.2
         m = float(np.prod(list(mult.values()))) if mult else 1.0
         raw = base * m
+        # 14.6: öğrenen modelin olasılığı kural skorunu ezmez, ona EKLENİR (varsayılan ağırlık 0 — ablasyonla doğrulanmadan açılmaz)
+        p7 = signals.get("tahmin_7g_olasilik")
+        if self.cfg.prediction_weight > 0 and p7 is not None and base > 0:
+            add = float(self.cfg.prediction_weight) * float(p7) * 10.0
+            raw += add
+            contrib["PRED-MODEL"] = add
         contrib = {k: v * m for k, v in contrib.items()}
         return RiskResult(sid, raw, base, mult, 0.0, window, contrib)
 

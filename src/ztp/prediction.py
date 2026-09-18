@@ -4,25 +4,37 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 from ztp.config import TenantConfig
 from ztp.features import FEATURE_FLOOR
+from ztp.prediction_model import HeuristicModel, LogisticModel, feature_vector
 from ztp.profile import DayContext
 from ztp.schema import CLOUD_APPS, DAY
-from ztp.stats import changepoint_mean_shift, ewma, linear_slope, mad, robust_z, sigmoid
+from ztp.stats import changepoint_mean_shift, ewma, linear_slope, mad, robust_z
 
 
 class PredictionLayer:
-    def __init__(self, cfg: TenantConfig, feats: pd.DataFrame, directory: pd.DataFrame, leaves: pd.DataFrame):
+    def __init__(self, cfg: TenantConfig, directory: pd.DataFrame, leaves: pd.DataFrame):
         self.cfg = cfg
         self.dir = directory.set_index("sid")
         self.leaves = leaves
-        self.user_feats = {sid: g.set_index("day").sort_index() for sid, g in feats.groupby("sid")}
+        self.user_feats: Dict[str, pd.DataFrame] = {}
         self.risk_series: Dict[str, Dict[pd.Timestamp, float]] = defaultdict(dict)
+        self.heuristic = HeuristicModel()
+        self.model: Optional[LogisticModel] = None  # etiketten öğrenen model (14.5 giriş şartı sağlanınca yüklenir)
+        self.rows: List[dict] = []  # entity-gün tahmin satırları (kalibrasyon ölçümü ve eğitim verisi)
+
+    def bind_features(self, feats: pd.DataFrame) -> None:
+        """Günün başında güncel varlık-gün özelliklerini bağlar (artımlı koşuda tablo her gün büyür)."""
+        self.user_feats = {sid: g.set_index("day").sort_index() for sid, g in feats.groupby("sid")} if len(feats) else {}
+
+    def prune(self, before: pd.Timestamp) -> None:
+        for sid in list(self.risk_series):
+            self.risk_series[sid] = {d: v for d, v in self.risk_series[sid].items() if d >= before}
 
     def record_risk(self, sid: str, day: pd.Timestamp, raw: float) -> None:
         self.risk_series[sid][day] = raw
@@ -112,16 +124,18 @@ class PredictionLayer:
                 s["bulut_yeni_uygulama"] = int(bool((recent_apps & CLOUD_APPS) - older_apps))
                 if s["bulut_yeni_uygulama"]:
                     ex["bulut_uygulama"] = sorted((recent_apps & CLOUD_APPS) - older_apps)
-        # --- 7 günlük ufuk olasılığı (POC kalibrasyonu; etiket biriktikçe denetimli modelle değiştirilir — 11.8/14.5) ---
-        comp = {
-            "yorunge": 1.5 * min(max(s["risk_egim_7g"], 0.0), 2.0),
-            "rejim": 0.6 * min(max(s["rejim_degisim_skoru"], 0.0), 5.0),
-            "mevcut_seviye": 3.0 * current_pct,
-            "ayrilik": 0.7 * ueba_signals.get("ayrilik_bildirimi", 0),
-            "yetki": 0.5 * int(ueba_signals.get("yetki_degisim_gun", -1) >= 0),
-            "yeni_hesap": 0.4 * int(ueba_signals.get("hesap_yasi_gun", 999) < 30),
-        }
-        p7 = sigmoid(-3.5 + sum(comp.values()))
+        # --- 7 günlük ufuk olasılığı: sezgisel başlangıç modeli; etiket biriktiğinde öğrenen model (11.8/14.5) ---
+        f = feature_vector(ueba_signals, s, current_pct)
+        p_h, comp_h = self.heuristic.predict(f)
+        if self.model is not None:
+            p7, comp = self.model.predict(f)
+            model_name = self.model.name
+        else:
+            p7, comp, model_name = p_h, comp_h, self.heuristic.name
         s["tahmin_7g_olasilik"] = p7
-        ex["tahmin_7g"] = dict(olasilik=round(p7, 3), bilesenler={k: round(v, 2) for k, v in comp.items() if v > 0})
+        s["tahmin_7g_sezgisel"] = p_h
+        ex["tahmin_7g"] = dict(
+            olasilik=round(p7, 3), model=model_name, bilesenler={k: round(v, 2) for k, v in comp.items() if abs(v) > 0.005}
+        )
+        self.rows.append(dict(gun=str(day.date()), sid=sid, ozellikler=f, p7=round(p7, 4), p7_sezgisel=round(p_h, 4)))
         return s, ex, evid

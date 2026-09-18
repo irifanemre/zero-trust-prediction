@@ -98,7 +98,7 @@ def test_data_quality_suspends_single_source_drop_but_not_calendar_effect():
             )
     ev = pd.DataFrame(rows)
     ev["received_time"] = ev["time"]
-    dq = DataQualityMonitor(TenantConfig(), ev)
+    dq = DataQualityMonitor.from_events(TenantConfig(), ev)
     assert dq.assess(pd.Timestamp("2026-01-27"))["proxy"]["durum"] == "askida"
     assert dq.assess(pd.Timestamp("2026-01-27"))["ad"]["durum"] == "ok"
     sat = dq.assess(pd.Timestamp("2026-01-24"))

@@ -32,6 +32,7 @@ class Hit:
     sinyaller: Dict[str, Any]
     durum: str
     aciklama: str = ""  # tespit anındaki bağlamla üretilen açıklama (sonraki günlerde bağlam değişir)
+    runbook: str = ""  # 17.4: bu uyarı geldiğinde analist ne yapar
 
 
 class DetectionEngine:
@@ -147,6 +148,7 @@ class DetectionEngine:
                 rule["durum"],
             )
             hit.aciklama = self.describe(hit, explain or {}) if self.describe else ""
+            hit.runbook = str(rule.get("runbook") or "")
             if rule["durum"] == "golge-modda":  # 13.6: uyarı üretir, analiste iletilmez; precision ölçülür
                 self.shadow_log.append(
                     dict(gun=str(day.date()), kural=rule["id"], kullanici=pseudo, siddet=round(hit.severity, 3))

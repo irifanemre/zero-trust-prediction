@@ -60,6 +60,15 @@ class TenantConfig:
     critical_assets: Tuple[str, ...] = ()
     # 12.5 müşteri bastırma kuralları: [{rule_id, sid|pseudonym, start, end, reason, owner}]
     suppressions: List[dict] = field(default_factory=list)
+    # 17.6 vaka çıkış entegrasyonları: [{type: jsonl}, {type: webhook, url, secret_env, headers, timeout, retries}]
+    sinks: List[dict] = field(default_factory=list)
+    # kalıcı durum: müşteri dizinindeki SQLite dosyası (günlük servis modu); boş → yalnızca bellek
+    state_file: str = "state.sqlite"
+    # 19.5 ablasyon anahtarları: bileşenin gerçekten değer ürettiğini ölçmek için kapatılabilir (üretimde True)
+    correlation_multipliers: bool = True  # 13.3 çarpanlar
+    peer_context: bool = True  # 9.2 akran ağırlığı (False → yalnızca kişisel baseline; yeni hesapta akran zorunlu kalır)
+    # 14.6 "model skoru kural skorunu ezmez, ona eklenir": öğrenen modelin 7g olasılığı ham skora bu ağırlıkla eklenir (0 = kapalı)
+    prediction_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.alarm_budget_per_day < 1:

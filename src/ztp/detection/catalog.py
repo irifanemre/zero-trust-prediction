@@ -15,6 +15,7 @@ import yaml
 
 LOG = logging.getLogger(__name__)
 RULES_DIR = Path(__file__).resolve().parent / "rules"
+RUNBOOKS_DIR = Path(__file__).resolve().parent / "runbooks"
 REQUIRED_FIELDS = (
     "id",
     "ad",
@@ -42,7 +43,15 @@ def validate_rule(rule: dict) -> List[str]:
         errors.append("mantik.kosullar boş olamaz")
     if rule.get("durum") == "yayinda" and not rule.get("runbook"):
         errors.append("runbook olmadan kural yayında olamaz (17.4)")
+    rb = rule.get("runbook")
+    if rb and str(rb).startswith("RB-") and not (RUNBOOKS_DIR / f"{rb}.md").exists():
+        errors.append(f"runbook içeriği yok: {rb}.md (runbook'suz kural analist için gürültüdür — 17.4)")
     return errors
+
+
+def runbook_text(runbook_id: str) -> Optional[str]:
+    p = RUNBOOKS_DIR / f"{runbook_id}.md"
+    return p.read_text(encoding="utf-8") if p.exists() else None
 
 
 def load_catalog(det_dir: Optional[Union[str, Path]] = None) -> List[dict]:

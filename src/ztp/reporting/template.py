@@ -37,9 +37,8 @@ class TemplateReporter:
         L.append("│ SKOR GEREKÇESİ".ljust(w + 1) + "│")
         for h in case["tespitler"]:
             L.append(
-                f"│  • [{h['kural']}] {h['ad']}: {h['aciklama']} (+{h['katki']:.1f} puan) [olay {', '.join(h['kanit'][:3]) or '—'}]".ljust(
-                    w + 1
-                )
+                f"│  • [{h['kural']}] {h['ad']}: {h['aciklama']} (+{h['katki']:.1f} puan) [olay {', '.join(h['kanit'][:3]) or '—'}]"
+                + (f" → {h['runbook']}" if h.get("runbook") else "")
                 + "│"
             )
         if case["carpanlar"]:

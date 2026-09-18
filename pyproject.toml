@@ -47,7 +47,7 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-"ztp.detection" = ["rules/*.yaml"]
+"ztp.detection" = ["rules/*.yaml", "runbooks/*.md"]
 "ztp.reporting" = ["knowledge/*.yaml", "knowledge/MANIFEST.sha256"]
 
 [tool.ruff]

@@ -163,3 +163,28 @@ def extract_features(ev_all: pd.DataFrame, critical_assets: Sequence[str]) -> pd
     f = f.reset_index().rename(columns={"canonical": "sid"})
     f["dow"] = f["day"].dt.dayofweek
     return f
+
+
+DEVICE_DAY_COLUMNS = ["device", "day", "edr_count", "ad_users"]
+
+
+def extract_device_day(ev_all: pd.DataFrame) -> pd.DataFrame:
+    """Cihaz-gün türev tablosu: EDR olay sayısı ve o gün cihazdan başarılı AD oturumu açan kullanıcılar (kullanıcı → sayı).
+    Ajan sessizliği (#10), cihaz sahipliği/paylaşımlılık ve 'başkasının cihazı' sinyalleri yalnızca bu tabloya dayanır;
+    ham olaylar saklanmadan artımlı çalışmayı mümkün kılar (Prensip 1 maliyet hunisi)."""
+    ev = ev_all[ev_all["device"].notna()]
+    day = ev["time"].dt.normalize()
+    edr = ev[ev["source"] == "edr"].groupby([ev["device"], day]).size().rename("edr_count")
+    ad = ev[(ev["source"] == "ad") & ev["canonical"].notna() & (ev["outcome"] == "success") & (ev["action"] == "logon")]
+    users = (
+        ad.groupby([ad["device"], ad["time"].dt.normalize(), ad["canonical"]])
+        .size()
+        .groupby(level=[0, 1])
+        .agg(lambda s: {k[2]: int(v) for k, v in s.items()})
+        .rename("ad_users")
+    )
+    out = pd.concat([edr, users], axis=1).reset_index()
+    out.columns = DEVICE_DAY_COLUMNS
+    out["edr_count"] = out["edr_count"].fillna(0).astype(int)
+    out["ad_users"] = out["ad_users"].apply(lambda v: v if isinstance(v, dict) else {})
+    return out

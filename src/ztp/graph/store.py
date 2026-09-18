@@ -89,6 +89,45 @@ class NetworkXGraphStore(GraphStore):
     def subgraph(self, nodes):
         return self.g.subgraph(list(nodes))
 
+    # ---- kalıcılık ve budama (11.3 graf sürekli güncellenir; 20.1 saklama süresi) ----
+    def export_edges(self) -> List[dict]:
+        rows = []
+        for u, v, data in self.g.edges(data=True):
+            for et, m in data["rel"].items():
+                rows.append(
+                    dict(
+                        src=u,
+                        dst=v,
+                        etype=et,
+                        count=int(m["count"]),
+                        first_ts=m["first_ts"].isoformat(),
+                        last_ts=m["last_ts"].isoformat(),
+                    )
+                )
+        return rows
+
+    def import_edges(self, rows: Iterable[dict]) -> int:
+        n = 0
+        for r in rows:
+            first, last = pd.Timestamp(r["first_ts"]), pd.Timestamp(r["last_ts"])
+            self.add_edge(r["src"], r["dst"], r["etype"], first, count=int(r["count"]))
+            self.g[r["src"]][r["dst"]]["rel"][r["etype"]]["last_ts"] = max(last, first)
+            n += 1
+        return n
+
+    def prune(self, before: pd.Timestamp) -> int:
+        """Son görülme tarihi eşikten eski kenarları ve yalnız kalan düğümleri kaldırır."""
+        removed = 0
+        for u, v in list(self.g.edges()):
+            rel = self.g[u][v]["rel"]
+            for et in [et for et, m in rel.items() if m["last_ts"] < before]:
+                del rel[et]
+                removed += 1
+            if not rel:
+                self.g.remove_edge(u, v)
+        self.g.remove_nodes_from([n for n in list(self.g.nodes) if self.g.degree(n) == 0 and not self.g.nodes[n].get("critical")])
+        return removed
+
     def reachable_within(self, node: str, hops: int, since=None, node_types: Optional[Set[str]] = None) -> Set[str]:
         if node not in self.g:
             return set()

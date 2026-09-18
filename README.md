@@ -31,8 +31,10 @@ VERİ TOPLAMA (OCSF-lite) ─▶ KİMLİK EŞLEŞTİRME ─▶ VERİ KALİTESİ 
 | Tespit | `ztp/detection/` | Detection-as-code (`rules/*.yaml`), güvenli ifade değerlendirici, yaşam döngüsü, gölge mod, bastırma |
 | Skorlama | `ztp/scoring.py` | Çarpanlar (×2.5 farklı taktik), yüzdelik, alarm bütçesi + kritik istisna, açık vaka |
 | Raporlama | `ztp/reporting/` | Deterministik şablon her zaman; LLM (Ollama / Anthropic) yalnızca kanıta bağlı özet; injection'a kapalı istem, bütünlük doğrulamalı ATT&CK bilgi tabanı (RAG), sıkı çıktı doğrulaması |
-| Geri besleme / ölçüm | `ztp/feedback.py`, `ztp/metrics.py` | Etiket deposu, FP sebebi zorunlu, kapsama/erkenlik/precision@k, kural sağlığı, sistem sağlığı |
-| Orkestrasyon | `ztp/pipeline.py`, `ztp/cli.py` | Müşteri bazında izole koşu; CLI |
+| Öğrenen tahmin + kalibrasyon | `ztp/prediction_model.py` | Sezgisel başlangıç modeli, JSON'da saklanan lojistik model, Brier/AUC/ECE güvenilirlik raporu; model kural skorunu ezmez, ekler |
+| Geri besleme / ölçüm | `ztp/feedback.py`, `ztp/metrics.py`, `ztp/ablation.py` | Etiket deposu, FP sebebi zorunlu, kapsama/erkenlik/precision@k, kural sağlığı, sistem sağlığı, ablasyon |
+| Kalıcı durum / entegrasyon | `ztp/state.py`, `ztp/integrations.py`, `ztp/data/files.py` | SQLite durum deposu (günlük servis, idempotent), imzalı webhook + JSONL sink, dosya girişi |
+| Orkestrasyon | `ztp/pipeline.py`, `ztp/cli.py` | Toplu ve artımlı koşu (eşdeğerlik testli); CLI |
 
 Bağımlılık yönü tek taraflıdır: `schema/stats → features/identity/quality/graph → profile/prediction/detection → scoring → reporting/metrics → pipeline → cli`. Tespit motoru raporlama katmanına bağımlı değildir (açıklama üretici enjekte edilir).
 
@@ -53,7 +55,11 @@ ztp --synthetic --users 150 --days 30 --budget 8 --out ./ztp_out
 ztp --synthetic --llm ollama --ollama-model gemma3:12b     # lokal LLM ile rapor (şablon her zaman yedek)
 ztp --out ./ztp_out --tenant musteri-A --label C-20260830-2493 --decision yanlis_pozitif --reason bilinen_istisna --analyst a1
 ztp --config configs/tenant.example.yaml --synthetic
-pytest                                             # 57 test (~1 dk; uçtan uca ve LLM güvenlik testleri dahil)
+ztp --synthetic --train-prediction                 # 7g olasılık modelini etiketten eğit, zamansal holdout ile kalibrasyon raporla
+ztp --synthetic --ablation                         # 19.5: prediction / ilişkisel / çarpan / akran kapalıyken fark
+ztp --synthetic --state --days 30                  # toplu ısınma + durum kaydı, ardından günlük servis:
+ztp --daily 2026-09-17 --events gun.parquet --directory dizin.csv --config musteri.yaml --out ./ztp_out
+pytest                                             # 75 test (~3 dk; uçtan uca, güvenlik ve toplu≡artımlı eşdeğerlik testleri dahil)
 ```
 
 Çıktılar `ztp_out/<tenant>/` altında: `queue_<gün>.txt` (analist kuyruğu), `cases/*.json`, `metrics.json`,
@@ -108,11 +114,17 @@ ağırlık, bastırma, sahip, runbook, kanıt aileleri ve **test senaryoları**.
   bayraklanır, nonce'lu yapısal bloklarda modele gider; RAG yalnızca teknik kimliğiyle, SHA-256 doğrulamalı bilgi tabanından
   getirir; çıktı olay kimliği/takma ad/sayı/aksiyon dili açısından doğrulanmadan analiste ulaşmaz. Ayrıntı: [docs/llm-security.md](docs/llm-security.md).
 
+## Operasyon
+
+Günlük servis modu (`--daily`), SQLite durum deposu, imzalı webhook/JSONL sink'leri ve runbook'lar için
+[docs/operations.md](docs/operations.md). Prediction katmanının kalibrasyon ölçümü, öğrenen model ve ablasyon için
+[docs/prediction.md](docs/prediction.md).
+
 ## Bilinen sınırlar
 
-Kalıcı durum yok (her koşu baştan hesaplar); prediction katmanı gerçek veride yalnızca kısmen doğrulandı; etiketten öğrenen
-sıralama modeli henüz yok (200 etiket eşiği); ATT&CK bilgi grafı örnek alt kümedir; saklama süresi / silme hakkı uygulanmadı.
-Yol haritası için [docs/architecture.md](docs/architecture.md).
+ATT&CK bilgi grafı örnek alt kümedir; saklama süresi / silme hakkı uygulanmadı; öğrenen model yalnızca cevap anahtarı
+(test) veya analist etiketiyle eğitilir ve varsayılan olarak skora eklenmez (`prediction_weight: 0`); CERT'te İK sinyalleri
+olmadığından PRED-0011/13/14 gerçek veride sınanamadı. Yol haritası için [docs/architecture.md](docs/architecture.md).
 
 ## Lisans
 

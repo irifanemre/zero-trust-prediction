@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Set, Tuple
 
@@ -11,7 +12,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 from ztp.config import TenantConfig
-from ztp.features import FEATURE_FLOOR, NUM_FEATURES, SEASONAL_FEATURES
+from ztp.features import DEVICE_DAY_COLUMNS, FEATURE_FLOOR, NUM_FEATURES, SEASONAL_FEATURES
 from ztp.peers import PeerGroups
 from ztp.schema import DAY, SENSITIVE_APPS
 from ztp.stats import (
@@ -50,58 +51,86 @@ class DayContext:
 
 
 class ProfileEngine:
-    def __init__(
-        self,
-        cfg: TenantConfig,
-        feats: pd.DataFrame,
-        directory: pd.DataFrame,
-        leaves: pd.DataFrame,
-        events: pd.DataFrame,
-        peers: PeerGroups,
-    ):
-        self.cfg, self.feats, self.peers = cfg, feats, peers
+    def __init__(self, cfg: TenantConfig, directory: pd.DataFrame, leaves: pd.DataFrame, peers: PeerGroups):
+        self.cfg, self.peers = cfg, peers
         self.dir = directory.set_index("sid")
         self.leaves = leaves
-        self.feats["peer"] = self.feats["sid"].map(peers.key)
-        # ajan sessizliği (#10): cihaz bazlı EDR gün kümesi + cihazdan AD oturumu açan kullanıcılar (cihaz KULLANIMDA mı?)
-        edr = events[(events["source"] == "edr") & events["device"].notna()]
-        self.edr_days: Dict[str, Set[pd.Timestamp]] = edr.groupby("device")["time"].agg(lambda s: set(s.dt.normalize())).to_dict()
-        ad = events[
-            (events["source"] == "ad") & events["device"].notna() & events["canonical"].notna() & (events["outcome"] == "success")
-        ]
-        self.ad_users_on_device: Dict[Tuple[str, pd.Timestamp], Set[str]] = (
-            ad.groupby([ad["device"], ad["time"].dt.normalize()])["canonical"].agg(set).to_dict()
-        )
-        # cihaz sahipliği: atanmış cihaz (AD/EDR kaydı) ve paylaşımlı cihazlar (≥3 farklı kullanıcı — laboratuvar/kiosk)
+        # cihaz sahipliği: atanmış cihaz (AD/EDR kaydı); laboratuvar/kiosk makineleri kimseye atanmamıştır
         self.owner_of_device: Dict[str, str] = {
             d: sid for d, sid in zip(directory["primary_device"], directory["sid"]) if isinstance(d, str)
         }
-        dev_users = ad.groupby("device")["canonical"].nunique()
-        dev_total = ad.groupby("device").size()
-        owner_share = {
-            d: (ad[(ad["device"] == d) & (ad["canonical"] == self.owner_of_device.get(d))].shape[0] / max(int(n), 1))
-            for d, n in dev_total.items()
-            if dev_users.get(d, 0) >= 3
-        }
-        # laboratuvar/kiosk: ≥3 kullanıcı VE atanmış sahibinin oturum payı <%50 (atanmış PC'de sahip baskındır)
-        self.shared_devices: Set[str] = {d for d, sh in owner_share.items() if sh < 0.5}
-        # akran bağlam düzelticisi (11.4): "başkasının/yabancı cihaz" davranışının akran grubundaki taban oranı
-        prim = dict(zip(directory["sid"], directory["primary_device"]))
+        self._primary = dict(zip(directory["sid"], directory["primary_device"]))
+        self.feats: pd.DataFrame = pd.DataFrame()
+        self.device_day: pd.DataFrame = pd.DataFrame(columns=DEVICE_DAY_COLUMNS)
+        self.by_day: Dict[pd.Timestamp, pd.DataFrame] = {}
+        self.edr_days: Dict[str, Set[pd.Timestamp]] = defaultdict(set)
+        self.ad_users_on_device: Dict[Tuple[str, pd.Timestamp], Set[str]] = {}
+        self.shared_devices: Set[str] = set()
 
-        def _foreign(r) -> int:
-            mine = prim.get(r["sid"])
-            return int(
-                any(
-                    (d != mine) and (d not in self.shared_devices) and (self.owner_of_device.get(d) != r["sid"])
-                    for d in (r["devices"] or ())
-                )
-            )
+    # ---- artımlı besleme ------------------------------------------------------
+    def append(self, feats: pd.DataFrame, device_day: pd.DataFrame) -> None:
+        """Yeni gün(ler)in varlık-gün özelliklerini ve cihaz-gün tablosunu ekler. Türev yapılar (EDR gün kümesi,
+        cihazdaki kullanıcılar, paylaşımlı cihazlar, yabancı cihaz bayrağı) yalnızca GEÇMİŞ veriden üretilir —
+        toplu ve artımlı koşu aynı sonucu verir (gelecek bilgisi sızmaz)."""
+        if device_day is not None and len(device_day):
+            parts = [f for f in (self.device_day, device_day[DEVICE_DAY_COLUMNS]) if len(f)]
+            self.device_day = pd.concat(parts, ignore_index=True).drop_duplicates(["device", "day"], keep="last")
+            for r in device_day.itertuples(index=False):
+                if int(r.edr_count) > 0:
+                    self.edr_days[r.device].add(pd.Timestamp(r.day))
+                if r.ad_users:
+                    self.ad_users_on_device[(r.device, pd.Timestamp(r.day))] = set(r.ad_users)
+            self._refresh_shared_devices()
+        if feats is None or feats.empty:
+            return
+        f = feats.copy()
+        f["peer"] = f["sid"].map(self.peers.key)
+        f["foreign_device_flag"] = [self._foreign(sid, devs) for sid, devs in zip(f["sid"], f["devices"])]
+        self.feats = pd.concat([self.feats, f], ignore_index=True) if len(self.feats) else f
+        if self.feats.duplicated(["sid", "day"]).any():
+            self.feats = self.feats.drop_duplicates(["sid", "day"], keep="last").reset_index(drop=True)
+        for d, g in f.groupby("day"):
+            self.by_day[d] = self.feats[self.feats["day"] == d] if d in self.by_day else g
 
-        self.feats["foreign_device_flag"] = [_foreign(r) for _, r in self.feats.iterrows()]
-        self.by_day = {d: g for d, g in self.feats.groupby("day")}
+    def prune(self, before: pd.Timestamp) -> None:
+        """Uzun pencere dışına çıkan veriyi düşürür (saklama süresi; bellek sınırı)."""
+        if len(self.feats):
+            self.feats = self.feats[self.feats["day"] >= before].reset_index(drop=True)
+        self.by_day = {d: g for d, g in self.by_day.items() if d >= before}
+        if len(self.device_day):
+            self.device_day = self.device_day[self.device_day["day"] >= before].reset_index(drop=True)
+        for dev in list(self.edr_days):
+            self.edr_days[dev] = {d for d in self.edr_days[dev] if d >= before}
+        self.ad_users_on_device = {k: v for k, v in self.ad_users_on_device.items() if k[1] >= before}
+
+    def _refresh_shared_devices(self) -> None:
+        """Laboratuvar/kiosk: ≥3 farklı kullanıcı VE atanmış sahibinin oturum payı <%50 (atanmış PC'de sahip baskındır)."""
+        totals: Dict[str, int] = defaultdict(int)
+        owner_n: Dict[str, int] = defaultdict(int)
+        users: Dict[str, Set[str]] = defaultdict(set)
+        for r in self.device_day.itertuples(index=False):
+            if not r.ad_users:
+                continue
+            for u, n in r.ad_users.items():
+                totals[r.device] += int(n)
+                users[r.device].add(u)
+                if self.owner_of_device.get(r.device) == u:
+                    owner_n[r.device] += int(n)
+        self.shared_devices = {d for d, n in totals.items() if len(users[d]) >= 3 and (owner_n[d] / max(n, 1)) < 0.5}
+
+    def _foreign(self, sid: str, devices) -> int:
+        """Akran bağlam düzelticisi (11.4) için: kullanıcı o gün atanmamış/yabancı bir cihaz kullandı mı?"""
+        mine = self._primary.get(sid)
+        return int(
+            any((d != mine) and (d not in self.shared_devices) and (self.owner_of_device.get(d) != sid) for d in (devices or ()))
+        )
 
     def today(self, day: pd.Timestamp) -> pd.DataFrame:
         return self.by_day.get(day, self.feats.iloc[0:0])
+
+    @property
+    def empty_frame(self) -> pd.DataFrame:
+        return self.feats.iloc[0:0]
 
     def context(self, day: pd.Timestamp) -> DayContext:
         cfg = self.cfg
@@ -212,6 +241,8 @@ class ProfileEngine:
         p_n = int(ctx.p_n.get(sid, 0))
         profil_gun = int(min((day - profil_baslangic).days, p_n))
         w_peer, w_pers = age_weights(min(hesap_yasi, profil_gun))
+        if not cfg.peer_context and sid in ctx.p_med.index and profil_gun >= 14:  # 19.5 ablasyon: yalnızca kişisel baseline
+            w_peer, w_pers = 0.0, 1.0
         if sid not in ctx.p_med.index:
             w_peer, w_pers = 1.0, 0.0
         peer = self.peers.key(sid)

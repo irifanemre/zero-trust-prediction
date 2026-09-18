@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -11,17 +11,49 @@ from ztp.schema import DAY
 
 
 class DataQualityMonitor:
-    def __init__(self, cfg: TenantConfig, events: pd.DataFrame):
+    COLUMNS = ["source", "day", "n", "late", "unres", "tz"]
+
+    def __init__(self, cfg: TenantConfig, stats: Optional[pd.DataFrame] = None):
         self.cfg = cfg
+        self.stats_df = stats if stats is not None else pd.DataFrame(columns=self.COLUMNS)
+        self._rebuild()
+
+    @staticmethod
+    def daily_stats(events: pd.DataFrame) -> pd.DataFrame:
+        """Ham olaylardan kaynak-gün istatistikleri (hacim, geç oran, çözümsüz oran, saat dilimi hatası). Ham olay saklanmaz."""
         ev = events
+        if ev.empty:
+            return pd.DataFrame(columns=DataQualityMonitor.COLUMNS)
         day = ev["time"].dt.normalize()
         late = (ev["received_time"] - ev["time"]) > pd.Timedelta(hours=1)
         tz_err = ev["time"] > ev["received_time"] + pd.Timedelta(minutes=1)  # alınış zamanı olay zamanından önce olamaz
         g = pd.DataFrame(
             {"source": ev["source"], "day": day, "late": late, "unres": ev["canonical"].isna(), "tz": tz_err}
         ).groupby(["source", "day"])
-        self.stats = g.agg(n=("late", "size"), late=("late", "mean"), unres=("unres", "mean"), tz=("tz", "sum"))
-        self.sources = sorted(ev["source"].unique())
+        return g.agg(n=("late", "size"), late=("late", "mean"), unres=("unres", "mean"), tz=("tz", "sum")).reset_index()
+
+    @classmethod
+    def from_events(cls, cfg: TenantConfig, events: pd.DataFrame) -> "DataQualityMonitor":
+        return cls(cfg, cls.daily_stats(events))
+
+    def ingest(self, stats: pd.DataFrame) -> None:
+        """Yeni gün istatistiklerini ekler (aynı kaynak-gün yeniden gelirse son değer geçerli)."""
+        if stats is None or stats.empty:
+            return
+        parts = [f for f in (self.stats_df, stats[self.COLUMNS]) if len(f)]
+        self.stats_df = pd.concat(parts, ignore_index=True).drop_duplicates(["source", "day"], keep="last")
+        self._rebuild()
+
+    def prune(self, before: pd.Timestamp) -> None:
+        self.stats_df = self.stats_df[self.stats_df["day"] >= before]
+        self._rebuild()
+
+    def _rebuild(self) -> None:
+        df = self.stats_df.copy()
+        if len(df):
+            df["day"] = pd.to_datetime(df["day"])
+        self.stats = df.set_index(["source", "day"]).sort_index() if len(df) else df.set_index(["source", "day"])
+        self.sources = sorted(df["source"].unique()) if len(df) else []
 
     def assess(self, day: pd.Timestamp) -> Dict[str, dict]:
         out = {}
