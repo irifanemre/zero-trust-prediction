@@ -127,6 +127,13 @@ Günlük servis modu (`--daily`), SQLite durum deposu, imzalı webhook/JSONL sin
 [docs/operations.md](docs/operations.md). Prediction katmanının kalibrasyon ölçümü, öğrenen model ve ablasyon için
 [docs/prediction.md](docs/prediction.md).
 
+## Dokümantasyon
+
+- [docs/mimari-dokuman.md](docs/mimari-dokuman.md) — mimari dokümanın md sürümü (**1.1**): Final 1.0 metni + uygulama ve CERT
+  doğrulamasıyla düzeltilen bölümler (`1.1 düzeltmesi` blokları), 1.0→1.1 değişiklik günlüğü, ADR-011…014.
+- [docs/architecture.md](docs/architecture.md) doküman→kod eşlemesi · [docs/cert-validation.md](docs/cert-validation.md) ·
+  [docs/prediction.md](docs/prediction.md) · [docs/operations.md](docs/operations.md) · [docs/llm-security.md](docs/llm-security.md)
+
 ## Bilinen sınırlar
 
 ATT&CK bilgi grafı örnek alt kümedir; saklama süresi / silme hakkı uygulanmadı; öğrenen model yalnızca cevap anahtarı

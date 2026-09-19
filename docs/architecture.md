@@ -1,7 +1,8 @@
 # Mimari
 
 Bu belge, referans mimari dokümanındaki bölümlerin kodda nereye karşılık geldiğini, mimari kararları (ADR) ve
-bilinen sınırları özetler. Doküman bölüm numaraları köşeli parantez içinde verilmiştir.
+bilinen sınırları özetler. Doküman bölüm numaraları köşeli parantez içinde verilmiştir. Dokümanın tam metni ve
+uygulama sonrası düzeltilmiş sürümü (1.1): [mimari-dokuman.md](mimari-dokuman.md).
 
 ## Katmanlar ve modüller
 
