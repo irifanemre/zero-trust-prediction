@@ -105,7 +105,7 @@ class ProfileEngine:
             self.edr_days[dev] = {d for d in self.edr_days[dev] if d >= before}
         self.ad_users_on_device = {k: v for k, v in self.ad_users_on_device.items() if k[1] >= before}
         self._dev_stats = {}
-        self._account_device_rows(self.device_day)   # budama sonrası istatistikler kalan tablodan yeniden kurulur
+        self._account_device_rows(self.device_day)  # budama sonrası istatistikler kalan tablodan yeniden kurulur
         self._refresh_shared_devices()
 
     def _account_device_rows(self, rows: pd.DataFrame) -> None:
