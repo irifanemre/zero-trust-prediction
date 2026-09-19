@@ -98,7 +98,10 @@ class HoneytokenRegistry:
             # cihaz sahibi yoksa IP kiralaması (zaman aralıklı — 8.2), o da yoksa tuzak hesabın kendi kimliği
             lease_sid = _lease_lookup(sub, leases)
             attributed = owner.where(owner.notna(), lease_sid).where(lambda s: s.notna(), sub["canonical"])
-            ev.loc[acct, "canonical"] = attributed
+            # eksik kimlik her pandas sürümünde None kalsın (NaN değil): aşağı akış `notna()` ve eşitlik kontrolleri tutarlı
+            ev.loc[acct, "canonical"] = pd.Series(
+                [v if isinstance(v, str) else None for v in attributed], index=sub.index, dtype=object
+            )
             ev.loc[acct, "is_service"] = ev.loc[acct, "canonical"].isin(service)
         tagged = ev[TOKEN_COLUMN].notna()
         lost = tagged & (ev["canonical"].isna() | ev["is_service"].astype(bool))

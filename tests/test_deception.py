@@ -42,6 +42,11 @@ def _ev(i, source, actor, cls=OCSF_AUTH, device=None, resource=None, src_ip=None
 REG = HoneytokenRegistry.from_config(dict(hesaplar=["SVC-Decoy"], kaynaklar=[r"\\FS\finans\bonus_*"], cihazlar=["honey-srv-01"]))
 
 
+def _vals(series):
+    """Eksik değer pandas sürümüne göre None ya da NaN olabilir (3.0'da str dtype); karşılaştırma için None'a indirgenir."""
+    return [v if isinstance(v, str) else None for v in series]
+
+
 def test_registry_config_validation():
     assert not HoneytokenRegistry.from_config(None) and not HoneytokenRegistry.empty()
     assert REG and len(REG) == 3 and "svc-decoy" in REG.accounts and "honey-srv-01" in REG.devices
@@ -68,7 +73,7 @@ def test_tag_matches_case_insensitively_with_glob_and_priority():
         ]
     )
     tag = REG.tag(ev)
-    assert list(tag) == [
+    assert _vals(tag) == [
         "hesap:svc-decoy",
         r"kaynak:\\FS\Finans\BONUS_2026.xlsx",
         "cihaz:HONEY-SRV-01",
@@ -94,12 +99,12 @@ def test_apply_attributes_decoy_account_use_to_source_not_to_decoy():
         ]
     )
     out, lost = REG.apply(ev, {"HOST-OWNED": "U-OWNER"}, leases, {"U-SVC"})
-    assert list(out["canonical"]) == ["U-OWNER", "U-LEASE", "U-DECOY", None, "U-SVC", "U-ALI"]
+    assert _vals(out["canonical"]) == ["U-OWNER", "U-LEASE", "U-DECOY", None, "U-SVC", "U-ALI"]
     assert out[TOKEN_COLUMN].notna().sum() == 6 and out.loc[0, TOKEN_COLUMN].startswith(KIND_ACCOUNT + ":")
     assert list(lost["event_id"]) == ["E-0004", "E-0005"] and list(lost["neden"]) == ["kimlik çözümlenemedi", "servis hesabı"]
     # tuzak yoksa hiçbir şey değişmez
     same, none = HoneytokenRegistry.empty().apply(ev, {}, leases, set())
-    assert same[TOKEN_COLUMN].isna().all() and none.empty and list(same["canonical"]) == list(ev["canonical"])
+    assert same[TOKEN_COLUMN].isna().all() and none.empty and _vals(same["canonical"]) == _vals(ev["canonical"])
 
 
 def test_features_count_honeytokens_outside_baseline_with_split_evidence():
