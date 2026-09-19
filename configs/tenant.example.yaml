@@ -45,6 +45,12 @@ critical_assets:
   - '\\FIN-SRV-01\butce'
   - '\\HR-SRV-01\bordro'
 
+# Aldatma katmanı: tuzak varlıklar (meşru kullanımı yok → her etkileşim deterministik KRİTİK tespit, bütçeden bağımsız)
+honeytokens:
+  hesaplar: [svc-backup-legacy]                  # tuzak AD/servis hesabı; kullanım kaynağına (cihaz sahibi → IP) atfedilir
+  kaynaklar: ['\\FIN-SRV-01\bonus_2026*']        # tuzak dosya/paylaşım (fnmatch kalıbı)
+  cihazlar: [HONEY-SRV-01]                       # tuzak sunucu
+
 # Bastırma kuralları: en dar kapsam, son kullanma tarihi, yazılı gerekçe ve sahip zorunlu
 suppressions:
   - rule_id: UEBA-0003

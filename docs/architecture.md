@@ -22,6 +22,7 @@ bilinen sınırları özetler. Doküman bölüm numaraları köşeli parantez i�
 | 12.1 | Detection-as-code | `detection/rules/*.yaml`, `detection.catalog`, `detection.expr.SafeExpr` |
 | 12.2 | Tespit 1–16 (+17, IF01) | `detection/rules/` |
 | 12.5 | Bastırma | `config.TenantConfig.suppressions`, `DetectionEngine._suppressed` |
+| 12.6 (yeni) / 13.5 istisnası | Aldatma katmanı: tuzak hesap/kaynak/cihaz etkileşimi, deterministik kritik tespit, kaynağa atıf, atfedilemeyen kuyruğu | `deception.HoneytokenRegistry`, `HONEY-0018/19/20`, `Hit.kritik`, `RiskScorer.calibrate/select_queue` |
 | 13.2–13.5 | Skor formülü, çarpanlar, yüzdelik kalibrasyon, alarm bütçesi | `scoring.RiskScorer` |
 | 13.6 | Gölge mod | `durum: golge-modda` → `shadow_log.jsonl` |
 | 7.3 | Kademeli müdahale; tahmin engellemez | `response` |
@@ -37,7 +38,7 @@ bilinen sınırları özetler. Doküman bölüm numaraları köşeli parantez i�
 ## Bağımlılık yönü
 
 ```
-schema, stats
+schema, stats, deception
    └─▶ features, identity, quality, graph.store/knowledge/observation, data.*
           └─▶ peers ─▶ profile ─▶ prediction
           └─▶ detection.expr ─▶ detection.engine ─▶ scoring ─▶ graph.analysis
@@ -64,6 +65,7 @@ schema, stats
 | 008 | Takma adlaştırma varsayılan | `identity.Pseudonymizer` |
 | 009 | RAG yalnızca analist bağlamı/raporlama için | (skorlamada kullanılmaz) |
 | 010 | Tahmin otomatik engelleme üretmez | `response.authorize_containment` |
+| 011 | Tuzak (honeytoken) etkileşimi istatistiksel değil deterministik tespittir: baseline/akran/jitter yok, `kritik: true`, bütçeden bağımsız; tuzak hesap kullanımı hesaba değil kaynağa atfedilir; atfedilemeyen etkileşim kaybolmaz | `deception.py`, `detection/rules/HONEY-*.yaml`, `honeytoken_unattributed.csv` |
 
 ## Bilinen sınırlar ve yol haritası
 
@@ -79,5 +81,7 @@ schema, stats
    zorlanmıyor.
 7. ~~Entegrasyon yok.~~ **Çözüldü:** imzalı webhook + JSONL sink'leri (`integrations.py`); 18 runbook içeriği ve katalog
    doğrulaması.
-8. **Ölçek.** 1000 kullanıcı × 111 gün ≈ 8 dk (tek makine). Günlük mod yalnızca bir günü işler; günlük bağlam
+8. **Aldatma katmanı gerçek veride ölçülmedi.** CERT'te tuzak varlık yoktur; HONEY-* kuralları sentetik S10 senaryosu ve
+   birim testlerle doğrulandı. Üretimde tuzakların dağıtımı (hesap/paylaşım/sunucu) müşteri tarafındadır.
+9. **Ölçek.** 1000 kullanıcı × 111 gün ≈ 8 dk (tek makine). Günlük mod yalnızca bir günü işler; günlük bağlam
    hesabı (90 günlük pencere groupby'ları) hâlâ her gün yeniden yapılır.

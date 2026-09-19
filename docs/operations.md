@@ -53,6 +53,26 @@ sinks:
 
 Sink hataları izole edilir ve sayılır; boru hattı durmaz.
 
+## Aldatma katmanı (honeytoken)
+
+Tuzak varlıklar müşteri yapılandırmasında listelenir; meşru kullanımı olmadığından her etkileşim deterministik kritik tespittir
+(`HONEY-0018` hesap, `HONEY-0019` dosya/paylaşım, `HONEY-0020` sunucu). Baseline, akran kıyası ve eşik jitter'ı uygulanmaz.
+
+```yaml
+honeytokens:
+  hesaplar:  [svc-backup-legacy, adm-eski]          # aktör adı (AD sAM/UPN/API kimliği), büyük/küçük harf duyarsız
+  kaynaklar: ['\\FS-01\finans\bonus_2026*']         # dosya/paylaşım yolu; fnmatch kalıbı olabilir
+  cihazlar:  [HONEY-SRV-01]                          # hiçbir iş akışında olmayan sunucu/host
+```
+
+- Tuzak **hesabın** kullanımı hesabın kendisine değil, kullanımın geldiği yere yazılır: cihaz sahibi → IP kiralaması →
+  (ikisi de yoksa) tuzak hesabın kendi kimliği. Hiçbiri çözümlenemezse veya kaynak bir servis hesabıysa olay
+  `honeytoken_unattributed.csv` kuyruğuna düşer ve `health.json → uyarilar` içinde sayılır; sessizce kaybolmaz.
+- Kural bastırılmaz: yanlış pozitif kaynağı (yedekleme, tarayıcı, indeksleme) servis hesabı olarak işaretlenir veya tuzak
+  dağıtımı düzeltilir. Runbook'lar: `RB-HONEY-0018/19/20`.
+- Tuzağın taşındığı kaynak (AD, dosya sunucusu) veri kalitesi katmanınca askıya alınmış olsa da gelen tuzak kanıtı geçerlidir
+  (kanıt *varlığı* kuralı; `veri_kaynaklari: [tuzak]`).
+
 ## Runbook'lar (17.4)
 
 Her kuralın `src/ztp/detection/runbooks/RB-<id>.md` içeriği vardır: amaç, ilk kontroller, yükseltme kriteri,
@@ -65,3 +85,4 @@ raporunda her tespit satırı runbook kimliğine bağlanır.
 2. `son_veri_kalitesi` → askıda kaynak var mı; varsa hangi tespitler atlandı (`kural_sagligi.dq_askida_atlanan`).
 3. `metrics.json` → `kural_sagligi.gun30_tetiklenmeyen` (ölü kural), `bastirma.oran` (bastırma kayması).
 4. Su seviyesi beklenen güne eşit mi (`state.sqlite` → `watermark`).
+5. `honeytoken_unattributed.csv` boş mu; değilse atfedilemeyen tuzak etkileşimleri elle incelenir (kaynak cihaz/IP).

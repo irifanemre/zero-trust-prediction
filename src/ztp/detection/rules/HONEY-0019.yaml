@@ -1,0 +1,36 @@
+id: HONEY-0019
+ad: Tuzak dosya/paylaşım erişimi (honeytoken)
+surum: '1.0'
+durum: yayinda
+katman: aldatma
+attack:
+- T1039
+fp_riski: dusuk
+veri_kaynaklari:
+- tuzak
+mantik:
+  pencere: 1d
+  kosullar:
+  - tuzak_kaynak_sayisi >= 1
+siddet:
+  sinyal: tuzak_kaynak_sayisi
+  esik: 0
+  olcek: 0.25
+agirlik: 20
+kritik: true
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-HONEY-0019
+kanit:
+- honeytoken_kaynak
+test_senaryolari:
+- ad: tuzak_dosya_okundu
+  beklenen: true
+  sinyaller:
+    tuzak_kaynak_sayisi: 1
+- ad: tuzak_yok
+  beklenen: false
+  sinyaller:
+    tuzak_kaynak_sayisi: 0
+notlar: Aldatma katmanı. Kimsenin işi için gerekmeyen tuzak dosya/paylaşım açıldı. Bilinen yanlış pozitif kaynağı
+  yedekleme/indeksleme servis hesaplarıdır; bunlar servis hesabı olarak işaretlenmeli, kural bastırılmamalıdır.

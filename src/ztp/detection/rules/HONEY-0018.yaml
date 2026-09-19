@@ -1,0 +1,37 @@
+id: HONEY-0018
+ad: Tuzak hesap kullanımı (honeytoken)
+surum: '1.0'
+durum: yayinda
+katman: aldatma
+attack:
+- T1078
+fp_riski: dusuk
+veri_kaynaklari:
+- tuzak
+mantik:
+  pencere: 1d
+  kosullar:
+  - tuzak_hesap_sayisi >= 1
+siddet:
+  sinyal: tuzak_hesap_sayisi
+  esik: 0
+  olcek: 0.25
+agirlik: 20
+kritik: true
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-HONEY-0018
+kanit:
+- honeytoken_hesap
+test_senaryolari:
+- ad: tuzak_hesapla_oturum
+  beklenen: true
+  sinyaller:
+    tuzak_hesap_sayisi: 1
+- ad: tuzak_yok
+  beklenen: false
+  sinyaller:
+    tuzak_hesap_sayisi: 0
+notlar: Aldatma katmanı. Meşru kullanımı olmayan hesap kullanıldı; baseline/akran/eşik yok. 13.5 tek-sinyal
+  ilkesinin açık istisnası — kritik, bütçeden bağımsız. Kullanım hesabın kendisine değil kaynağına (cihaz sahibi →
+  IP kiralaması) atfedilir.

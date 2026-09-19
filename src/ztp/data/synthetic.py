@@ -34,6 +34,8 @@ SHARES_BY_DEPT = {
 }
 ALL_SHARES = sorted({s for v in SHARES_BY_DEPT.values() for s in v})
 CRITICAL_ASSETS_DEFAULT = [r"\\FIN-SRV-01\butce", r"\\HR-SRV-01\bordro", r"\\DC-01\sysvol", r"\\ARGE-SRV-01\kaynak_kod"]
+# aldatma katmanı tuzakları (honeytokens=True ile): meşru kullanımı olmayan hesap / paylaşım / sunucu
+HONEYTOKENS_DEFAULT = dict(hesaplar=["svc-backup-legacy"], kaynaklar=[r"\\FIN-SRV-01\bonus_2026*"], cihazlar=["HONEY-SRV-01"])
 BENIGN_PROCS = ["outlook.exe", "excel.exe", "chrome.exe", "teams.exe", "explorer.exe", "winword.exe", "code.exe"]
 RECON_CMDS = [
     ("whoami.exe", "whoami /all"),
@@ -100,10 +102,17 @@ class SyntheticOrg:
     Not (19.2): kendi ürettiğimiz mock veri döngüsel doğrulama riski taşır; birincil kaynak CERT'tir."""
 
     def __init__(
-        self, n_users: int = 150, n_days: int = 141, eval_days: int = 30, end_day: Optional[pd.Timestamp] = None, seed: int = 42
+        self,
+        n_users: int = 150,
+        n_days: int = 141,
+        eval_days: int = 30,
+        end_day: Optional[pd.Timestamp] = None,
+        seed: int = 42,
+        honeytokens: bool = False,
     ):
         self.rng = np.random.default_rng(seed)
         self.n_users, self.n_days, self.eval_days = n_users, n_days, eval_days
+        self.honeytokens = honeytokens  # S10 tuzak senaryosu ve tuzak listesi (varsayılan kapalı: regresyon sayıları değişmesin)
         self.end_day = (end_day or pd.Timestamp.utcnow().tz_localize(None)).normalize()
         self.day0 = self.end_day - pd.Timedelta(days=n_days - 1)
         self.E0 = n_days - eval_days  # değerlendirme penceresinin ilk gün indeksi
@@ -439,6 +448,25 @@ class SyntheticOrg:
             )
         )
 
+        # S10 — Aldatma katmanı: iç keşif yapan kullanıcı tuzak paylaşımı açar, tuzak hesapla ve tuzak sunucuya oturum dener
+        if self.honeytokens:
+            s10 = self._pick("Operasyon", used)
+            used.add(s10["idx"])
+            ov[(s10["idx"], E0 + 10)].update(extra_shares=[r"\\FIN-SRV-01\bonus_2026.xlsx"], honeytoken_account=True)
+            ov[(s10["idx"], E0 + 12)].update(honeytoken_device=True)
+            self.ground_truth.append(
+                dict(
+                    senaryo="S10_tuzak_etkilesimi",
+                    aktor="İç keşif / yanal hareket",
+                    sid=s10["sid"],
+                    baslangic=E0 + 10,
+                    olay_gunu=E0 + 12,
+                    teknikler=["T1039", "T1078", "T1021"],
+                    beklenen=["HONEY-0019", "HONEY-0018", "HONEY-0020"],
+                    veri_kaynagi=["file_server", "ad"],
+                )
+            )
+
     # ---- olay üretimi ---------------------------------------------------------
     def _add(self, rows: list, t: pd.Timestamp, cls: int, source: str, actor_raw: str, **kw) -> str:
         self._eid += 1
@@ -546,6 +574,32 @@ class SyntheticOrg:
                 country=country,
                 action="logon",
                 outcome="failure",
+            )
+        if ov.get("honeytoken_account"):  # tuzak hesapla oturum denemesi: kullanıcının KENDİ cihazından (atıf cihaz sahibine)
+            self._add(
+                rows,
+                self._ts(day, h0 + 3.0),
+                OCSF_AUTH,
+                "ad",
+                HONEYTOKENS_DEFAULT["hesaplar"][0],
+                device=u["primary_device"],
+                src_ip=ip,
+                country=country,
+                action="logon",
+                outcome="failure",
+            )
+        if ov.get("honeytoken_device"):  # tuzak sunucuya oturum (yanal hareket)
+            self._add(
+                rows,
+                self._ts(day, h0 + 4.0),
+                OCSF_AUTH,
+                "ad",
+                u["ad_sam"],
+                device=HONEYTOKENS_DEFAULT["cihazlar"][0],
+                src_ip=ip,
+                country=country,
+                action="logon",
+                outcome="success",
             )
         # Ele geçirilmiş hesap: saldırgan VPN ile başka ülkeden, yeni cihazla — gerçek kullanıcı ofiste (imkânsız seyahat)
         atk = ov.get("attacker")
@@ -794,4 +848,13 @@ class SyntheticOrg:
             gt["baslangic_tarihi"] = str(self._day(gt["baslangic"]).date())
             gt["olay_tarihi"] = str(self._day(gt["olay_gunu"]).date())
         leaves = pd.DataFrame(self.leaves, columns=["sid", "start", "end", "tur"])
-        return Dataset("sentetik", directory, leases, events, leaves, self.ground_truth, list(CRITICAL_ASSETS_DEFAULT))
+        return Dataset(
+            "sentetik",
+            directory,
+            leases,
+            events,
+            leaves,
+            self.ground_truth,
+            list(CRITICAL_ASSETS_DEFAULT),
+            honeytokens=dict(HONEYTOKENS_DEFAULT) if self.honeytokens else {},
+        )

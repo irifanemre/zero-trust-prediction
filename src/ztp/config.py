@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import yaml
+
+from ztp.deception import HoneytokenRegistry
 
 
 @dataclass
@@ -69,6 +71,9 @@ class TenantConfig:
     peer_context: bool = True  # 9.2 akran ağırlığı (False → yalnızca kişisel baseline; yeni hesapta akran zorunlu kalır)
     # 14.6 "model skoru kural skorunu ezmez, ona eklenir": öğrenen modelin 7g olasılığı ham skora bu ağırlıkla eklenir (0 = kapalı)
     prediction_weight: float = 0.0
+    # aldatma katmanı: tuzak varlıklar {hesaplar: [...], kaynaklar: [fnmatch kalıpları], cihazlar: [...]} — meşru kullanımı yok,
+    # her etkileşim deterministik kritik tespit (13.5 tek-sinyal istisnası); boş → katman kapalı
+    honeytokens: Dict[str, List[str]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.alarm_budget_per_day < 1:
@@ -85,6 +90,11 @@ class TenantConfig:
             raise ValueError("llm_on_injection: template | sanitized")
         self.available_sources = tuple(self.available_sources)
         self.critical_assets = tuple(self.critical_assets)
+        HoneytokenRegistry.from_config(self.honeytokens)  # şema hatası açık hata verir; sessiz düşüş yok
+
+    @property
+    def honeytoken_registry(self) -> HoneytokenRegistry:
+        return HoneytokenRegistry.from_config(self.honeytokens)
 
     @classmethod
     def from_yaml(cls, path: Union[str, Path], **overrides: Any) -> "TenantConfig":

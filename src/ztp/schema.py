@@ -43,6 +43,7 @@ SOURCE_ALIAS = {
     "dlp": "dlp",
     "risk_serisi": "_internal",
     "graf": "_internal",
+    "tuzak": "_internal",  # aldatma katmanı: kanıt VARLIĞI kuralıdır; taşıyan kaynak askıda olsa da gelen kanıt geçerlidir
     "eposta": "email",
     "email": "email",
 }

@@ -74,6 +74,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--warmup", type=int, default=21, help="risk serisi ısınma günü (vaka üretilmez)")
     ap.add_argument("--budget", type=int, default=8, help="alarm bütçesi N = analist kapasitesi (13.5)")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--honeytokens",
+        action="store_true",
+        help="sentetik veriye tuzak varlıklar + S10 tuzak etkileşimi senaryosu ekle (aldatma katmanı)",
+    )
     ap.add_argument("--end", help="değerlendirme son günü (YYYY-MM-DD); varsayılan bugün")
     ap.add_argument("--out", default="./ztp_out")
     ap.add_argument("--detections-dir", help="detection-as-code YAML dizini (yoksa gömülü katalog)")
@@ -112,7 +117,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     cfg = TenantConfig.from_yaml(args.config, **overrides) if args.config else TenantConfig(**overrides)
     if args.synthetic:
         n_days = cfg.long_window_days + args.warmup + args.days
-        data = SyntheticOrg(n_users=args.users, n_days=n_days, eval_days=args.days, end_day=end, seed=args.seed).build()
+        data = SyntheticOrg(
+            n_users=args.users, n_days=n_days, eval_days=args.days, end_day=end, seed=args.seed, honeytokens=args.honeytokens
+        ).build()
     elif args.events and args.directory:  # toplu ısınma dosyalardan (günlük moda geçiş öncesi): --state ile durum kaydedilir
         if not args.end:
             sys.exit("Dosya girişinde --end zorunludur")

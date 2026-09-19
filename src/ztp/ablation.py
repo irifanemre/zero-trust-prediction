@@ -65,6 +65,7 @@ def run_ablation(
             data.leaves.copy(),
             copy.deepcopy(data.ground_truth),
             list(data.critical_assets),
+            honeytokens=dict(data.honeytokens),
         )
         LOG.info("Ablasyon varyantı: %s — %s", name, spec["aciklama"])
         pipe = ZeroTrustPredictionPipeline(vcfg, vdata, vcat, out_dir)

@@ -21,7 +21,7 @@ import pandas as pd
 
 LOG = logging.getLogger(__name__)
 SCHEMA_VERSION = 1
-FROZENSET_COLS = ("apps", "devices", "countries", "resources")
+FROZENSET_COLS = ("apps", "devices", "countries", "resources", "honeytokens")
 DICT_COLS = ("app_events", "device_events", "country_events", "resource_events", "evidence", "ad_users")
 LIST_COLS = ("offhours_hours",)
 
@@ -143,6 +143,7 @@ def hits_to_records(hit_log: Dict[str, list]) -> List[dict]:
                     durum=h.durum,
                     aciklama=h.aciklama,
                     runbook=getattr(h, "runbook", ""),
+                    kritik=bool(getattr(h, "kritik", False)),
                 )
             )
     return out
@@ -164,6 +165,7 @@ def hits_from_records(records: List[dict], hit_cls) -> Dict[str, list]:
             r["durum"],
             r.get("aciklama", ""),
             r.get("runbook", ""),
+            bool(r.get("kritik", False)),
         )
         out.setdefault(r["sid"], []).append(h)
     return out

@@ -29,6 +29,7 @@ VERİ TOPLAMA (OCSF-lite) ─▶ KİMLİK EŞLEŞTİRME ─▶ VERİ KALİTESİ 
 | Özellikler / akran / baseline | `ztp/features.py`, `ztp/peers.py`, `ztp/profile.py` | Varlık-gün özellikleri; yapısal+davranışsal akran; hesap yaşına göre ağırlık (akran hiç sıfırlanmaz) |
 | Prediction | `ztp/prediction.py` | Yörünge + rejim değişimi; İK sinyalleri; 7 günlük ufuk |
 | Tespit | `ztp/detection/` | Detection-as-code (`rules/*.yaml`), güvenli ifade değerlendirici, yaşam döngüsü, gölge mod, bastırma |
+| Aldatma (honeytoken) | `ztp/deception.py` | Tuzak hesap/kaynak/cihaz etkileşimi: baseline yok, deterministik kritik tespit; tuzak hesap kullanımı hesaba değil kaynağa (cihaz sahibi → IP kiralaması) atfedilir |
 | Skorlama | `ztp/scoring.py` | Çarpanlar (×2.5 farklı taktik), yüzdelik, alarm bütçesi + kritik istisna, açık vaka |
 | Raporlama | `ztp/reporting/` | Deterministik şablon her zaman; LLM (Ollama / Anthropic) yalnızca kanıta bağlı özet; injection'a kapalı istem, bütünlük doğrulamalı ATT&CK bilgi tabanı (RAG), sıkı çıktı doğrulaması |
 | Öğrenen tahmin + kalibrasyon | `ztp/prediction_model.py` | Sezgisel başlangıç modeli, JSON'da saklanan lojistik model, Brier/AUC/ECE güvenilirlik raporu; model kural skorunu ezmez, ekler |
@@ -57,9 +58,10 @@ ztp --out ./ztp_out --tenant musteri-A --label C-20260830-2493 --decision yanlis
 ztp --config configs/tenant.example.yaml --synthetic
 ztp --synthetic --train-prediction                 # 7g olasılık modelini etiketten eğit, zamansal holdout ile kalibrasyon raporla
 ztp --synthetic --ablation                         # 19.5: prediction / ilişkisel / çarpan / akran kapalıyken fark
+ztp --synthetic --honeytokens                      # aldatma katmanı: tuzak varlıklar + S10 tuzak etkileşimi senaryosu
 ztp --synthetic --state --days 30                  # toplu ısınma + durum kaydı, ardından günlük servis:
 ztp --daily 2026-09-17 --events gun.parquet --directory dizin.csv --config musteri.yaml --out ./ztp_out
-pytest                                             # 75 test (~3 dk; uçtan uca, güvenlik ve toplu≡artımlı eşdeğerlik testleri dahil)
+pytest                                             # 82 test (~3 dk; uçtan uca, güvenlik ve toplu≡artımlı eşdeğerlik testleri dahil)
 ```
 
 Çıktılar `ztp_out/<tenant>/` altında: `queue_<gün>.txt` (analist kuyruğu), `cases/*.json`, `metrics.json`,
@@ -99,6 +101,7 @@ UEBA-0001 mesai dışı aktivite · 0002 ilk kez görülen uygulama · 0003 anor
 0008 hesap yaşı × keşif · 0009 akran yapısal sapma (gölge) · DQ-0010 log sessizliği · PRED-0011 yetki artışı sonrası kayma ·
 PRED-0012 risk yörüngesi · PRED-0013 uzun sessizlik sonrası aktivite · PRED-0014 ayrılık öncesi desen ·
 REL-0015 paylaşılan cihaz üzerinden yayılma · REL-0016 ortak kaynak · UEBA-0017 taşınabilir medya (günlük + 7g kümülatif) ·
+HONEY-0018 tuzak hesap · HONEY-0019 tuzak dosya/paylaşım · HONEY-0020 tuzak sunucu (aldatma katmanı; `kritik: true`) ·
 UEBA-IF01 Isolation Forest (gölge).
 
 Her kural: sürüm, durum (`taslak → golge-modda → yayinda → emekli`), ATT&CK, veri kaynakları, koşullar, şiddet tanımı,
@@ -108,6 +111,8 @@ ağırlık, bastırma, sahip, runbook, kanıt aileleri ve **test senaryoları**.
 
 - **Sabit eşik yok:** günlük inceleme kuyruğu analist kapasitesi kadar; kritik olaylar bütçeden bağımsız.
 - **Tek sinyal uyarı üretmez:** tespitler varlık-gün bağlamında toplanır, farklı ATT&CK taktiklerinin birleşimi en yüksek çarpanı alır.
+  Tek istisna **aldatma katmanı**: tuzak varlıkla etkileşimin meşru açıklaması yoktur; tek etkileşim kritik vaka üretir ve
+  bütçeden bağımsız kuyruğa girer (`honeytokens:` yapılandırması).
 - **Açıklanabilirlik zorunlu:** her puan bir kurala, her kural olay kimliklerine bağlıdır; LLM skorlama yolunda değildir.
 - **Tahmin engellemez:** erişim kısıtlama yalnızca doğrulanmış olay + yetkili insan kararıyla (`authorize_containment`).
 - **Gizlilik varsayılan:** analist takma ad görür; kimlik açma ikinci onay ve denetim izi gerektirir.

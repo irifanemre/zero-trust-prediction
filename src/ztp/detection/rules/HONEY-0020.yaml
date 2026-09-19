@@ -1,0 +1,36 @@
+id: HONEY-0020
+ad: Tuzak sunucu/cihaz etkileşimi (honeytoken)
+surum: '1.0'
+durum: yayinda
+katman: aldatma
+attack:
+- T1021
+fp_riski: dusuk
+veri_kaynaklari:
+- tuzak
+mantik:
+  pencere: 1d
+  kosullar:
+  - tuzak_cihaz_sayisi >= 1
+siddet:
+  sinyal: tuzak_cihaz_sayisi
+  esik: 0
+  olcek: 0.25
+agirlik: 20
+kritik: true
+bastirma: []
+sahip: guvenlik-operasyon
+runbook: RB-HONEY-0020
+kanit:
+- honeytoken_cihaz
+test_senaryolari:
+- ad: tuzak_sunucuya_oturum
+  beklenen: true
+  sinyaller:
+    tuzak_cihaz_sayisi: 1
+- ad: tuzak_yok
+  beklenen: false
+  sinyaller:
+    tuzak_cihaz_sayisi: 0
+notlar: Aldatma katmanı. Üretimde hiçbir iş akışında yer almayan tuzak sunucuya oturum/bağlantı. Ağ tarayıcıları
+  (zafiyet tarama, envanter) tuzak cihaza dokunur; bunlar servis hesabı olarak işaretlenmeli.

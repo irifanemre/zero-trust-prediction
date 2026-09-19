@@ -89,9 +89,12 @@ class RiskScorer:
         n = len(arr)
         for r in results.values():
             r.percentile = float(np.searchsorted(arr, r.raw, side="left") / n) if n else 0.0
-            tactics = {self.kg.tactic(t) for h in r.hits if h.day == day for t in h.attack}
-            r.critical = (r.percentile >= self.cfg.critical_percentile and r.raw > 0) or (
-                len(tactics) >= 2 and r.multipliers.get("ayricalikli_hesap") == 1.5
+            today = [h for h in r.hits if h.day == day]
+            tactics = {self.kg.tactic(t) for h in today for t in h.attack}
+            r.critical = (
+                (r.percentile >= self.cfg.critical_percentile and r.raw > 0)
+                or (len(tactics) >= 2 and r.multipliers.get("ayricalikli_hesap") == 1.5)
+                or any(h.kritik for h in today)  # deterministik kanıt (ör. tuzak etkileşimi): tek sinyal, bütçeden bağımsız
             )
 
     def select_queue(self, day: pd.Timestamp, results: Dict[str, RiskResult]) -> List[str]:
@@ -106,10 +109,9 @@ class RiskScorer:
             return any(h.day > lq for h in r.hits)
 
         ranked = sorted((r for r in results.values() if r.raw > 0 and eligible(r)), key=lambda r: (-int(r.critical), -r.raw))
-        chosen = [r.sid for r in ranked[: self.cfg.alarm_budget_per_day]]
-        for r in ranked[self.cfg.alarm_budget_per_day :]:
-            if r.critical:
-                chosen.append(r.sid)
+        # kritik istisna bütçeden BAĞIMSIZDIR: N sıralı vaka + tüm kritikler (kritik, sıradan vakanın yerini almaz)
+        chosen = [r.sid for r in ranked if r.critical]
+        chosen += [r.sid for r in ranked if not r.critical][: self.cfg.alarm_budget_per_day]
         for sid in chosen:
             self.last_queued[sid] = day
         return chosen

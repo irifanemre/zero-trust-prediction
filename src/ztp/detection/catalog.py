@@ -46,6 +46,8 @@ def validate_rule(rule: dict) -> List[str]:
     rb = rule.get("runbook")
     if rb and str(rb).startswith("RB-") and not (RUNBOOKS_DIR / f"{rb}.md").exists():
         errors.append(f"runbook içeriği yok: {rb}.md (runbook'suz kural analist için gürültüdür — 17.4)")
+    if "kritik" in rule and not isinstance(rule["kritik"], bool):
+        errors.append("kritik: true|false olmalı (13.5 bütçeden bağımsız kritik istisna)")
     return errors
 
 

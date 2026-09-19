@@ -15,6 +15,7 @@ import pandas as pd
 
 from ztp.config import TenantConfig
 from ztp.data.dataset import Dataset
+from ztp.deception import UNATTRIBUTED_COLUMNS, HoneytokenRegistry
 from ztp.detection.catalog import export_catalog
 from ztp.detection.engine import DetectionEngine, Hit
 from ztp.features import extract_device_day, extract_features
@@ -89,6 +90,9 @@ class ZeroTrustPredictionPipeline:
         self.dq_last: dict = {}
         self.final_risk: Dict[str, Dict[pd.Timestamp, float]] = defaultdict(dict)
         self.events_by_day: Dict[pd.Timestamp, pd.DataFrame] = {}
+        # aldatma katmanı: yapılandırmadaki tuzak listesi veri paketindekini ezer (kritik varlıklarla aynı kural); boşsa kapalı
+        self.honeytokens = HoneytokenRegistry.from_config(cfg.honeytokens or getattr(data, "honeytokens", None))
+        self.honeytoken_unattributed = pd.DataFrame(columns=UNATTRIBUTED_COLUMNS)
         self._init_components()
 
     # ------------------------------------------------------------------ kurulum
@@ -116,6 +120,14 @@ class ZeroTrustPredictionPipeline:
         ev["time"] = to_utc_naive(ev["time"])
         ev["received_time"] = to_utc_naive(ev["received_time"])
         ev = self.resolver.resolve(ev)
+        if self.honeytokens:
+            # tuzak etkileşimi: etiketle; tuzak hesap kullanımını kaynağına (cihaz sahibi → IP kiralaması) atfet
+            ev, lost = self.honeytokens.apply(ev, self.profile.owner_of_device, self.resolver.leases, self.resolver.service_sids)
+            if len(lost):
+                parts = [f for f in (self.honeytoken_unattributed, lost) if len(f)]
+                self.honeytoken_unattributed = pd.concat(parts, ignore_index=True)
+                self.health.warnings.append(f"tuzak etkileşimi atfedilemedi: {len(lost)} olay (honeytoken_unattributed.csv)")
+                LOG.warning("Aldatma katmanı: %d tuzak etkileşimi kimliğe atfedilemedi", len(lost))
         self.health.time("kimlik_eslestirme", t0)
         if ev.empty:
             return ev
@@ -346,7 +358,9 @@ class ZeroTrustPredictionPipeline:
             signals[sid], explains[sid], evidences[sid] = s, ex, evid
             if s.get("zehirleme_suphesi"):
                 self.metrics.flags[sid].add("zehirleme_suphesi")
-            hits_today[sid] = self.engine.evaluate(day, sid, self.pseud.pseudo(sid), s, evid, dq, ("UEBA", "veri-kalitesi"), ex)
+            hits_today[sid] = self.engine.evaluate(
+                day, sid, self.pseud.pseudo(sid), s, evid, dq, ("UEBA", "veri-kalitesi", "aldatma"), ex
+            )
         self.health.time("ueba", t0)
         # 4) Prediction: geçici günlük risk (UEBA) → yörünge/rejim sinyalleri → prediction tespitleri
         t0 = time.perf_counter()
@@ -530,6 +544,8 @@ class ZeroTrustPredictionPipeline:
             for s in self.engine.suppressed_log:
                 f.write(json.dumps(s, ensure_ascii=False) + "\n")
         self.resolver.unresolved_queue.to_csv(self.out / "unresolved_identity_queue.csv", index=False)
+        if self.honeytokens:  # kaybolan tuzak kanıtı yoktur: atfedilemeyen etkileşimler analist kuyruğuna dosya olarak düşer
+            self.honeytoken_unattributed.to_csv(self.out / "honeytoken_unattributed.csv", index=False)
         # 20.1 erişim ayrımı: gerçek kimlik eşlemesi ayrı, kısıtlı dosyada (üretimde ayrı yetki alanı / vault)
         vault = {
             p: dict(sid=s, display_name=str(self.data.directory.set_index("sid").loc[s, "display_name"]))

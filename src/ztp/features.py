@@ -8,6 +8,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from ztp.deception import TOKEN_COLUMN
 from ztp.schema import OCSF_AUTH, OCSF_NETWORK, RECON_CMD_HINTS, RECON_PROCESSES, haversine_km
 
 NUM_FEATURES = [
@@ -73,7 +74,10 @@ def extract_features(ev_all: pd.DataFrame, critical_assets: Sequence[str]) -> pd
     f["recon_process_count"] = ev[ev["is_recon"]].groupby(keys).size()
     f["usb_count"] = ev[(ev["source"] == "dlp") & (ev["action"] == "usb_copy")].groupby(keys).size()
     f["distinct_apps_n"] = ev[ev["app"].notna()].groupby(keys)["app"].nunique()
-    count_cols = [c for c in NUM_FEATURES if c in f.columns] + ["file_offhours_ratio"]
+    # aldatma katmanı: tuzak etkileşimi sayımı baseline'a GİRMEZ (NUM_FEATURES dışında) — deterministik sinyal
+    has_token = ev[TOKEN_COLUMN].notna() if TOKEN_COLUMN in ev.columns else pd.Series(False, index=ev.index)
+    f["honeytoken_count"] = ev[has_token].groupby(keys).size()
+    count_cols = [c for c in NUM_FEATURES if c in f.columns] + ["file_offhours_ratio", "honeytoken_count"]
     f[count_cols] = f[count_cols].fillna(0)
     # kümeler + kanıt (olay kimlikleri) + imkânsız seyahat: numpy döngüsü (varlık-gün başına ~15 olay)
     idx = g.indices
@@ -96,6 +100,7 @@ def extract_features(ev_all: pd.DataFrame, critical_assets: Sequence[str]) -> pd
         ]
     }
     T = ev["time"].values.astype("datetime64[m]").astype(np.int64)
+    tokens_col = ev[TOKEN_COLUMN].values if TOKEN_COLUMN in ev.columns else None
     recs = {}
     for key, pos in idx.items():
         apps, devs, ctry, ress = {}, {}, {}, {}
@@ -103,9 +108,15 @@ def extract_features(ev_all: pd.DataFrame, critical_assets: Sequence[str]) -> pd
         travel = []
         off_hours = []
         top_bytes = []
+        tokens = set()
         for p in pos:
             eid = A["event_id"][p]
             src = A["source"][p]
+            if tokens_col is not None and isinstance(tokens_col[p], str):
+                tokens.add(tokens_col[p])
+                kind = "honeytoken_" + tokens_col[p].split(":", 1)[0]  # kanıt tuzak türüne göre ayrılır (hesap/kaynak/cihaz)
+                if len(evid[kind]) < 6:
+                    evid[kind].append(eid)
             if A["app"][p] is not None and isinstance(A["app"][p], str):
                 apps.setdefault(A["app"][p], eid)
             if isinstance(A["device"][p], str):
@@ -156,6 +167,7 @@ def extract_features(ev_all: pd.DataFrame, critical_assets: Sequence[str]) -> pd
             evidence=dict(evid),
             offhours_hours=off_hours,
             max_travel_speed=max_speed,
+            honeytokens=frozenset(tokens),
         )
     extra = pd.DataFrame.from_dict(recs, orient="index")
     extra.index = pd.MultiIndex.from_tuples(extra.index, names=keys)

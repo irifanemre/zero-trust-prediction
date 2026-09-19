@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import Dict, List
 
 import pandas as pd
 
@@ -19,3 +19,4 @@ class Dataset:
     leaves: pd.DataFrame  # devamsızlık takvimi (9.3 uzun izin dönüşü)
     ground_truth: List[dict]  # enjekte edilen senaryolar (kapsama/erkenlik ölçümü için)
     critical_assets: List[str]
+    honeytokens: Dict[str, List[str]] = field(default_factory=dict)  # aldatma katmanı tuzakları (yapılandırma ezer)

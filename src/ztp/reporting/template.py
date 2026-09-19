@@ -50,6 +50,11 @@ class TemplateReporter:
             )
             + "│"
         )
+        if ex.get("tuzak_varliklar"):
+            L.append(
+                f"│  ⚠ TUZAK ETKİLEŞİMİ (deterministik kanıt, bütçeden bağımsız): {', '.join(ex['tuzak_varliklar'])}".ljust(w + 1)
+                + "│"
+            )
         if ex.get("zehirleme"):
             L.append(f"│  ⚠ Zehirleme şüphesi: {ex['zehirleme']}".ljust(w + 1) + "│")
         if ex.get("if_katki"):
@@ -220,4 +225,8 @@ def describe_hit(h: Hit, ex: dict) -> str:
         return f"taşınabilir medya bugün {s.get('usb_sayisi')} kez ({why})"
     if r == "UEBA-IF01":
         return f"IF anomali yüzdeliği %{100 * s.get('if_anomali_pct', 0):.1f}; en çok katkı: {ex.get('if_katki')}"
+    if r.startswith("HONEY-"):
+        kind = {"HONEY-0018": "hesap", "HONEY-0019": "kaynak", "HONEY-0020": "cihaz"}.get(r, "")
+        toks = [t.split(":", 1)[1] for t in (ex.get("tuzak_varliklar") or []) if t.startswith(kind + ":")]
+        return f"tuzak {kind} etkileşimi (meşru kullanımı yok; baseline uygulanmaz): {', '.join(toks) or '—'}"
     return ", ".join(f"{k}={v}" for k, v in s.items() if v is not None)

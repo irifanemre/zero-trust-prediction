@@ -12,6 +12,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 from ztp.config import TenantConfig
+from ztp.deception import KIND_ACCOUNT, KIND_DEVICE, KIND_RESOURCE
 from ztp.features import DEVICE_DAY_COLUMNS, FEATURE_FLOOR, NUM_FEATURES, SEASONAL_FEATURES
 from ztp.peers import PeerGroups
 from ztp.schema import DAY, SENSITIVE_APPS
@@ -448,6 +449,14 @@ class ProfileEngine:
         if sid in ctx.silent_devices:
             ex["sessiz_cihaz"] = ctx.silent_devices[sid]
             evid["silence"] = [f"cihaz:{ctx.silent_devices[sid]} (EDR akışı yok — veri yokluğu kanıtı)"]
+        # aldatma katmanı (honeytoken): baseline/akran yok — etkileşim sayısı doğrudan sinyaldir (13.5 tek-sinyal istisnası)
+        tokens = row.get("honeytokens") or frozenset()
+        s["tuzak_etkilesim_sayisi"] = int(row.get("honeytoken_count", 0) or 0)
+        s["tuzak_hesap_sayisi"] = sum(1 for t in tokens if t.startswith(KIND_ACCOUNT + ":"))
+        s["tuzak_kaynak_sayisi"] = sum(1 for t in tokens if t.startswith(KIND_RESOURCE + ":"))
+        s["tuzak_cihaz_sayisi"] = sum(1 for t in tokens if t.startswith(KIND_DEVICE + ":"))
+        if tokens:
+            ex["tuzak_varliklar"] = sorted(tokens)
         # İK sinyalleri
         s["ayrilik_bildirimi"] = int(not pd.isna(u["resignation_notice_date"]) and u["resignation_notice_date"] <= day)
         g = u["privilege_grant_date"]
