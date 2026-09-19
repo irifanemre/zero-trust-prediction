@@ -824,27 +824,37 @@ Tespit kuralları uygulama koduna gömülmez. Her tespit, sürüm kontrollü bir
 id: UEBA-0007
 ad: Mesai dışı toplu dosya erişimi
 surum: '1.0'
-durum: yayinda                 # taslak | golge-modda | yayinda | emekli
-katman: UEBA                   # UEBA | veri-kalitesi | Prediction | iliskisel | aldatma
+durum: yayinda              # taslak | golge-modda | yayinda | emekli
+katman: UEBA                # UEBA | veri-kalitesi | Prediction | iliskisel | aldatma
 attack: [T1039, T1530]
 fp_riski: orta
 veri_kaynaklari: [dosya_sunucu, ad_oturum]   # kaynak askıdaysa kural atlanır ve sayılır (8.3)
 mantik:
-  pencere: 1d                  # varlık-gün bağlamı (13.1); 7g kümülatif sinyaller ayrıca üretilir
-  kosullar:                    # adlandırılmış sinyaller, güvenli ifade değerlendirici (AST, yalnızca aritmetik/karşılaştırma)
+  pencere: 1d               # varlık-gün bağlamı (13.1); 7g kümülatif sinyaller ayrıca üretilir
+  kosullar:                 # adlandırılmış sinyaller; güvenli ifade değerlendirici (AST)
     - saat_sapmasi_z > 3.0 or mesai_disi_dosya_orani > 0.5
     - dosya_sayisi_poisson_p < 0.001
     - dosya_sayisi_akran_kati > 5.0
-siddet: {sinyal: dosya_sayisi_poisson_p, esik: 0.001, olcek: 3.0, donusum: log10}   # sigmoid → 0–1 (13.2)
+siddet:                     # sigmoid((sinyal − eşik) / ölçek) → 0–1 (13.2)
+  sinyal: dosya_sayisi_poisson_p
+  esik: 0.001
+  olcek: 3.0
+  donusum: log10
 agirlik: 8
-kritik: false                  # true → 13.5 kritik istisna: tek başına, bütçeden bağımsız (aldatma katmanı)
+kritik: false               # true → 13.5 kritik istisna: tek başına, bütçeden bağımsız
 bastirma: [servis_hesaplari, yedekleme_penceresi]   # Pazar 02:00-04:00
 sahip: guvenlik-operasyon
-runbook: RB-UEBA-0007          # zorunlu; runbooks/RB-UEBA-0007.md yoksa katalog yüklenmez (17.4)
-kanit: [file, offhours]        # rapora yazılacak olay kimliği aileleri
-test_senaryolari:              # `ztp --test-rules` ve CI'da çalışır
-  - {ad: toplu_indirme_gece,      beklenen: true,  sinyaller: {saat_sapmasi_z: 1.0, mesai_disi_dosya_orani: 0.9, dosya_sayisi_poisson_p: 1.0e-9, dosya_sayisi_akran_kati: 12}}
-  - {ad: toplu_indirme_mesai_ici, beklenen: false, sinyaller: {saat_sapmasi_z: 0.5, mesai_disi_dosya_orani: 0.0, dosya_sayisi_poisson_p: 1.0e-9, dosya_sayisi_akran_kati: 12}}
+runbook: RB-UEBA-0007       # zorunlu; runbooks/RB-UEBA-0007.md yoksa katalog yüklenmez (17.4)
+kanit: [file, offhours]     # rapora yazılacak olay kimliği aileleri
+test_senaryolari:           # `ztp --test-rules` ve CI'da çalışır
+  - ad: toplu_indirme_gece
+    beklenen: true
+    sinyaller: {saat_sapmasi_z: 1.0, mesai_disi_dosya_orani: 0.9,
+                dosya_sayisi_poisson_p: 1.0e-9, dosya_sayisi_akran_kati: 12}
+  - ad: toplu_indirme_mesai_ici
+    beklenen: false
+    sinyaller: {saat_sapmasi_z: 0.5, mesai_disi_dosya_orani: 0.0,
+                dosya_sayisi_poisson_p: 1.0e-9, dosya_sayisi_akran_kati: 12}
 notlar: ''
 ```
 
@@ -1345,34 +1355,34 @@ Ayrıntı: `docs/operations.md`.
 Sistem bir vaka ürettiğinde analiste sunulacak bilgi seti (1.0 taslağı):
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ VAKA #4271                     Risk: 87/100 ▲ (7 gün: +34) │
-│ Kullanıcı: a.yilmaz | Departman: Finans | Müşteri: [X] │
-├──────────────────────────────────────────────────────────────┤
-│ SKOR GEREKÇESİ                                                │
-│   • Veri indirme: normal 200 MB/gün → bugün 14 GB (+45 puan)│
-│   • Giriş saati: 03:14 (normal aralık 08:00–19:00) (+18 puan)│
-│   • Akran kıyası: Finans ekibinde gece erişimi yok (+12 puan)│
-│   • Rejim değişimi: 12 gün önce davranış profili değişti(+12)│
-├──────────────────────────────────────────────────────────────┤
-│ İLİŞKİ HARİTASI                                               │
-│   a.yilmaz ──kullandı──► LAPTOP-042                           │
-│              └──erişti──► FIN-SRV-01 (hassas kaynak)          │
-│   LAPTOP-042 ──ayrıca kullanıldı──► m.kaya (2 gün önce)       │
-│   Eşleşen teknik: T1078 (Valid Accounts)                      │
-├──────────────────────────────────────────────────────────────┤
-│ ZAMAN ÇİZELGESİ                                               │
-│   12 gün önce ─── davranış profili değişimi                   │
-│    3 gün önce ─── ilk hassas kaynak erişimi                   │
-│        bugün ─── 14 GB veri indirme                           │
-├──────────────────────────────────────────────────────────────┤
-│ OTOMATİK ÖZET (her ifade olay kimliğine bağlı)                │
-│   "Kullanıcı son 12 günde davranış profilini değiştirdi..." │
+┌────────────────────────────────────────────────────────────────┐
+│ VAKA #4271                     Risk: 87/100 ▲ (7 gün: +34)     │
+│ Kullanıcı: a.yilmaz | Departman: Finans | Müşteri: [X]         │
+├────────────────────────────────────────────────────────────────┤
+│ SKOR GEREKÇESİ                                                 │
+│   • Veri indirme: normal 200 MB/gün → bugün 14 GB (+45 puan)   │
+│   • Giriş saati: 03:14 (normal aralık 08:00–19:00) (+18 puan)  │
+│   • Akran kıyası: Finans ekibinde gece erişimi yok (+12 puan)  │
+│   • Rejim değişimi: 12 gün önce davranış profili değişti(+12)  │
+├────────────────────────────────────────────────────────────────┤
+│ İLİŞKİ HARİTASI                                                │
+│   a.yilmaz ──kullandı──► LAPTOP-042                            │
+│              └──erişti──► FIN-SRV-01 (hassas kaynak)           │
+│   LAPTOP-042 ──ayrıca kullanıldı──► m.kaya (2 gün önce)        │
+│   Eşleşen teknik: T1078 (Valid Accounts)                       │
+├────────────────────────────────────────────────────────────────┤
+│ ZAMAN ÇİZELGESİ                                                │
+│   12 gün önce ─── davranış profili değişimi                    │
+│    3 gün önce ─── ilk hassas kaynak erişimi                    │
+│        bugün ─── 14 GB veri indirme                            │
+├────────────────────────────────────────────────────────────────┤
+│ OTOMATİK ÖZET (her ifade olay kimliğine bağlı)                 │
+│   "Kullanıcı son 12 günde davranış profilini değiştirdi..."    │
 │                                             [olay #8821, #8830]│
-├──────────────────────────────────────────────────────────────┤
-│ [ ✓ GERÇEK TEHDİT ] [ ✗ YANLIŞ ALARM ] [ ⏸ İNCELEMEDE ] │
-│         └──────────► etiket deposuna yazılır ────────────┘    │
-└──────────────────────────────────────────────────────────────┘
+├────────────────────────────────────────────────────────────────┤
+│ [ ✓ GERÇEK TEHDİT ] [ ✗ YANLIŞ ALARM ] [ ⏸ İNCELEMEDE ]        │
+│         └──────────► etiket deposuna yazılır ────────────┘     │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 Tasarım notu: Alt kısımdaki karar butonları yalnızca arayüz unsuru değil, sistemin öğrenme mekanizmasının giriş noktasıdır (bkz. Bölüm 11.8).
@@ -1380,37 +1390,37 @@ Tasarım notu: Alt kısımdaki karar butonları yalnızca arayüz unsuru değil,
 > **1.1 düzeltmesi — uygulanan rapor** (`queue_<gün>.txt` + `cases/<vaka>.json`; `reporting.template.TemplateReporter`). 1.0 taslağından farklar: kullanıcı **takma adla** görünür (U-xxxx); her tespit satırında kural kimliği, tespit anındaki bağlamla açıklama, katkı puanı, **olay kimlikleri** ve **runbook**; çarpanlar ve baseline ağırlığı satırı; ⚠ TUZAK / zehirleme şüphesi / IF katkısı satırları; ATT&CK bağlamı (bilgi tabanı, skorlamaya girmez); özetin kaynağı (şablon/LLM) ve ⚠ GÜVENLİK satırı (15.4); kademeli müdahale seviyesi ve "otomatik engelleme yok" hatırlatması; etiket komutu. Uzun satırlar kesilmez, sarılır.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ VAKA C-20260828-5439              Risk:  75/100  ▲ (7 gün: +95)                                │
-│ Kullanıcı: U-5439  |  Departman: Operasyon  |  Müşteri: musteri-A  |  Gün: 2026-08-28          │
-│ Yüzdelik: %99.9  |  Ham: 98.2  |  Yapısal: 0.17  |  7g tahmin: %92  |  Kritik: EVET            │
-├────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ SKOR GEREKÇESİ                                                                                 │
-│  • [HONEY-0018] Tuzak hesap kullanımı (honeytoken): tuzak hesap etkileşimi (meşru kullanımı    │
-│    yok; baseline uygulanmaz): svc-backup-legacy (+49.1 puan) [olay E-002c819] → RB-HONEY-0018  │
-│  • [HONEY-0019] Tuzak dosya/paylaşım erişimi (honeytoken): tuzak kaynak etkileşimi (meşru      │
-│    kullanımı yok; baseline uygulanmaz): \\FIN-SRV-01\bonus_2026.xlsx (+49.1 puan) [olay        │
-│    E-002c820, E-002c821] → RB-HONEY-0019                                                       │
-│  Çarpanlar: farkli_taktik_2 ×2.5                                                               │
-│  Baseline: akran grubu Operasyon/IST | ağırlık akran 0.15 / kişisel 0.85 | hesap yaşı 1038 gün │
-│  ⚠ TUZAK ETKİLEŞİMİ (deterministik kanıt, bütçeden bağımsız): hesap:svc-backup-legacy,         │
-│    kaynak:\\FIN-SRV-01\bonus_2026.xlsx                                                         │
-│  IF (destek/gölge) katkı — özellik, robust-z: [('offhours_ratio', 4.15), ...]                  │
-├────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ İLİŞKİ HARİTASI                                                                                │
-│  U-5439 ──kullandı──▶ HOST-1118                                                                │
-│  Eşleşen teknik: T1039 (Data from Network Shared Drive) → Collection                           │
-│  Eşleşen teknik: T1078 (Valid Accounts) → Initial Access; gruplar: APT29, Lapsus$              │
-│  Etki alanı: 14 kaynak (3 adım)                                                                │
-├────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ ZAMAN ÇİZELGESİ · ATT&CK BAĞLAMI (bilgi tabanı; skorlamaya girmez) · OTOMATİK ÖZET             │
-│ (her ifade olay kimliğine bağlı) [özet kaynağı: sablon]                                        │
-├────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ KADEMELİ MÜDAHALE: Yüksek → analiste vaka açılması, insan değerlendirmesi (kullanıcı etkisi:   │
-│ Yok)  —  Otomatik engelleme YOK — erişim kısıtlama yalnızca doğrulanmış olay + insan kararıyla │
-│ [ ✓ GERÇEK TEHDİT ]  [ ✗ YANLIŞ ALARM (sebep zorunlu) ]  [ ¿ BELİRSİZ ]   → etiket deposu      │
-│   --label C-20260828-5439 --decision gercek_pozitif|yanlis_pozitif|belirsiz --reason ... --analyst ... │
-└────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────────────────┐
+│ VAKA C-20260828-5439              Risk:  75/100  ▲ (7 gün: +95)                               │
+│ Kullanıcı: U-5439  |  Departman: Operasyon  |  Müşteri: musteri-A  |  Gün: 2026-08-28         │
+│ Yüzdelik: %99.9  |  Ham: 98.2  |  Yapısal: 0.17  |  7g tahmin: %92  |  Kritik: EVET           │
+├───────────────────────────────────────────────────────────────────────────────────────────────┤
+│ SKOR GEREKÇESİ                                                                                │
+│  • [HONEY-0018] Tuzak hesap kullanımı (honeytoken): tuzak hesap etkileşimi (meşru kullanımı   │
+│    yok; baseline uygulanmaz): svc-backup-legacy (+49.1 puan) [olay E-002c819] → RB-HONEY-0018 │
+│  • [HONEY-0019] Tuzak dosya/paylaşım erişimi (honeytoken): tuzak kaynak etkileşimi (meşru     │
+│    kullanımı yok; baseline uygulanmaz): \\FIN-SRV-01\bonus_2026.xlsx (+49.1 puan) [olay       │
+│    E-002c820, E-002c821] → RB-HONEY-0019                                                      │
+│  Çarpanlar: farkli_taktik_2 ×2.5                                                              │
+│  Baseline: akran grubu Operasyon/IST | ağırlık akran 0.15 / kişisel 0.85 | hesap yaşı 1038 gün│
+│  ⚠ TUZAK ETKİLEŞİMİ (deterministik kanıt, bütçeden bağımsız): hesap:svc-backup-legacy,        │
+│    kaynak:\\FIN-SRV-01\bonus_2026.xlsx                                                        │
+│  IF (destek/gölge) katkı — özellik, robust-z: [('offhours_ratio', 4.15), ...]                 │
+├───────────────────────────────────────────────────────────────────────────────────────────────┤
+│ İLİŞKİ HARİTASI                                                                               │
+│  U-5439 ──kullandı──▶ HOST-1118                                                               │
+│  Eşleşen teknik: T1039 (Data from Network Shared Drive) → Collection                          │
+│  Eşleşen teknik: T1078 (Valid Accounts) → Initial Access; gruplar: APT29, Lapsus$             │
+│  Etki alanı: 14 kaynak (3 adım)                                                               │
+├───────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ZAMAN ÇİZELGESİ · ATT&CK BAĞLAMI (bilgi tabanı; skorlamaya girmez) · OTOMATİK ÖZET            │
+│ (her ifade olay kimliğine bağlı) [özet kaynağı: sablon]                                       │
+├───────────────────────────────────────────────────────────────────────────────────────────────┤
+│ KADEMELİ MÜDAHALE: Yüksek → analiste vaka açılması, insan değerlendirmesi (kullanıcı etkisi:  │
+│ Yok)  —  Otomatik engelleme YOK — erişim kısıtlama yalnızca doğrulanmış olay + insan kararıyla│
+│ [ ✓ GERÇEK TEHDİT ]  [ ✗ YANLIŞ ALARM (sebep zorunlu) ]  [ ¿ BELİRSİZ ]   → etiket deposu     │
+│   --label C-20260828-5439 --decision ... --reason ... --analyst ...                           │
+└───────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 (Sentetik `--honeytokens` koşusundan, S10 senaryosu; 7g tahmin %92 sezgisel modelindir — kalibrasyon için 4 ve 14.6.)

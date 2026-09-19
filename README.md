@@ -131,6 +131,8 @@ Günlük servis modu (`--daily`), SQLite durum deposu, imzalı webhook/JSONL sin
 
 - [docs/mimari-dokuman.md](docs/mimari-dokuman.md) — mimari dokümanın md sürümü (**1.1**): Final 1.0 metni + uygulama ve CERT
   doğrulamasıyla düzeltilen bölümler (`1.1 düzeltmesi` blokları), 1.0→1.1 değişiklik günlüğü, ADR-011…014.
+  PDF: [docs/Zero_Trust_Prediction_Mimari_v1.1.pdf](docs/Zero_Trust_Prediction_Mimari_v1.1.pdf)
+  (`pip install -e ".[docs]"` → `python scripts/build_pdf.py docs/mimari-dokuman.md docs/Zero_Trust_Prediction_Mimari_v1.1.pdf`).
 - [docs/architecture.md](docs/architecture.md) doküman→kod eşlemesi · [docs/cert-validation.md](docs/cert-validation.md) ·
   [docs/prediction.md](docs/prediction.md) · [docs/operations.md](docs/operations.md) · [docs/llm-security.md](docs/llm-security.md)
 
